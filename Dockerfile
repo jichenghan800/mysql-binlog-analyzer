@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# 安装MySQL客户端
-RUN apk add --no-cache mysql-client
+# 安装MySQL客户端工具
+RUN apk add --no-cache mysql-client mysql
 
 # 设置工作目录
 WORKDIR /app
