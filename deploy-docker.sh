@@ -149,12 +149,19 @@ log_success "端口检查完成"
 log_info "步骤7: 构建Docker镜像..."
 
 # 彻底清理构建缓存和中间层
-docker system prune -a -f >/dev/null 2>&1 || true
-docker builder prune -a -f >/dev/null 2>&1 || true
+log_info "清理Docker缓存..."
+docker system prune -a -f
+docker builder prune -a -f
 
 # 删除所有相关镜像（包括中间层）
+log_info "删除旧镜像..."
 docker images -a | grep mysql-binlog-analyzer | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
 docker images -a | grep "<none>" | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+docker images -a | grep node | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+
+# 显示剩余镜像
+log_info "当前镜像列表:"
+docker images
 
 # 显示构建过程
 log_info "开始构建镜像（强制重新构建所有层）..."
