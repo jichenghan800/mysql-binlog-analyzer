@@ -148,10 +148,34 @@ log_success "端口检查完成"
 # 7. 构建镜像
 log_info "步骤7: 构建Docker镜像..."
 
+# 彻底清理构建缓存和中间层
+docker system prune -a -f >/dev/null 2>&1 || true
+docker builder prune -a -f >/dev/null 2>&1 || true
+
+# 删除所有相关镜像（包括中间层）
+docker images -a | grep mysql-binlog-analyzer | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+docker images -a | grep "<none>" | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
+
 # 显示构建过程
-docker-compose build --no-cache --pull
+log_info "开始构建镜像（强制重新构建所有层）..."
+docker-compose build --no-cache --pull --force-rm
 
 log_success "镜像构建完成"
+
+# 验证镜像构建结果
+log_info "验证镜像构建结果..."
+docker images | grep mysql-binlog-analyzer
+
+# 测试镜像启动
+log_info "测试镜像启动..."
+TEST_CONTAINER=$(docker run -d --rm mysql-binlog-analyzer-app echo "test")
+sleep 2
+if docker logs $TEST_CONTAINER 2>/dev/null | grep -q "test"; then
+    log_success "镜像测试成功"
+else
+    log_error "镜像测试失败，请检查构建过程"
+    exit 1
+fi
 
 # 8. 启动服务
 log_info "步骤8: 启动服务..."
