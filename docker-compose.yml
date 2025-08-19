@@ -20,6 +20,8 @@ services:
           memory: 16G
         reservations:
           memory: 2G
+    profiles:
+      - memory-only
     
   # 带数据库的应用服务
   mysql-binlog-analyzer-db:
