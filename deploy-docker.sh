@@ -222,7 +222,7 @@ echo "您选择了: $choice"
 case $choice in
     1)
         log_info "启动内存存储模式..."
-        docker-compose up -d
+        docker-compose --profile memory-only up -d
         SERVICE_NAME="app"
         ;;
     2)
@@ -232,7 +232,7 @@ case $choice in
         ;;
     *)
         log_error "无效选择，默认使用内存存储模式"
-        docker-compose up -d
+        docker-compose --profile memory-only up -d
         SERVICE_NAME="app"
         ;;
 esac
