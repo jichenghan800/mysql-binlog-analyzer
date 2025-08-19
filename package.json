@@ -4,8 +4,7 @@
     "description": "MySQL Binlog分析工具 - 解析和分析MySQL binlog文件的Web工具",
     "main": "server.js",
     "author": "Your Name",
-    "license": "PRIVATE",
-    "private": true,
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/yourusername/mysql-binlog-analyzer.git"
