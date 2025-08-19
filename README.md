@@ -82,13 +82,13 @@ chmod +x deploy.sh
 git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
 cd mysql-binlog-analyzer
 
-# 启动应用 - 使用内存存储
+# 启动应用 - 使用内存存储 (端口5000)
 docker-compose up -d
 ```
 
 **数据库存储部署 (推荐)：**
 ```bash
-# 启动应用 + MySQL数据库 - 使用数据库存储
+# 启动应用 + MySQL数据库 - 使用数据库存储 (端口5000)
 docker-compose --profile with-database up -d
 ```
 
