@@ -1,6 +1,26 @@
 version: '3.8'
 
+# 默认启动内存存储模式
 services:
+  # 默认服务 (内存存储)
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - USE_DATABASE=false
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+  # 基础应用服务 (内存存储)
   mysql-binlog-analyzer:
     build: .
     ports:
@@ -12,8 +32,37 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     restart: unless-stopped
+    profiles:
+      - memory-only
     
-  # 可选：MySQL数据库服务
+  # 带数据库的应用服务
+  mysql-binlog-analyzer-db:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - USE_DATABASE=true
+      - DB_HOST=mysql
+      - DB_USER=binlog_user
+      - DB_PASSWORD=binlog_pass
+      - DB_NAME=binlog_analyzer
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    profiles:
+      - with-database
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    
+  # MySQL数据库服务
   mysql:
     image: mysql:8.0
     environment:

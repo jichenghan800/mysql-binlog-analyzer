@@ -88,6 +88,12 @@ function parseBinlog(filePath) {
     
     console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析...');
     
+    // Docker环境检测
+    const isDocker = fs.existsSync('/.dockerenv');
+    if (isDocker) {
+      console.log('检测到Docker环境，使用优化配置...');
+    }
+    
     // 使用mysqlbinlog工具解析，添加更多参数来获取时间信息
     const mysqlbinlog = spawn('mysqlbinlog', [
       '-v', 
@@ -97,7 +103,7 @@ function parseBinlog(filePath) {
     let output = '';
     let error = '';
     let outputSize = 0;
-    const maxOutputSize = 200 * 1024 * 1024; // 200MB输出限制
+    const maxOutputSize = 500 * 1024 * 1024; // 500MB输出限制 (适合Docker环境)
 
     mysqlbinlog.stdout.on('data', (data) => {
       const chunk = data.toString();
@@ -523,11 +529,18 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     
     // 尝试保存到数据库（所有文件）
     let sessionId = null;
-    if (dbManager.useDatabase && operations.length > 0) {
+    const isDocker = fs.existsSync('/.dockerenv');
+    
+    // Docker环境下大文件自动使用数据库存储（如果可用）
+    const shouldUseDatabase = dbManager.useDatabase || (isDocker && operations.length > 100);
+    
+    if (shouldUseDatabase && operations.length > 0) {
       sessionId = dbManager.generateSessionId();
       const saved = await dbManager.saveOperations(sessionId, operations);
       if (saved) {
         console.log(`数据已保存到数据库，会话 ID: ${sessionId}`);
+      } else if (isDocker) {
+        console.log('警告: Docker环境下建议使用数据库存储大文件');
       }
     }
     
