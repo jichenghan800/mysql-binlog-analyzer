@@ -158,7 +158,9 @@ docker images -a | grep "<none>" | awk '{print $3}' | xargs docker rmi -f 2>/dev
 
 # 显示构建过程
 log_info "开始构建镜像（强制重新构建所有层）..."
+echo "=== Docker构建输出 ==="
 docker-compose build --no-cache --pull --force-rm
+echo "=== 构建完成 ==="
 
 log_success "镜像构建完成"
 
