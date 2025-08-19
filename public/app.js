@@ -2,6 +2,9 @@ class BinlogAnalyzer {
     constructor() {
         this.operations = [];
         this.filteredOperations = [];
+        this.currentPage = 1;
+        this.pageSize = 100; // 每页显示100条
+        this.currentSort = { field: 'timestamp', order: 'desc' }; // 默认按时间倒序
         this.initializeEventListeners();
     }
 
@@ -21,8 +24,61 @@ class BinlogAnalyzer {
         document.getElementById('databaseFilter').addEventListener('change', this.applyFilters.bind(this));
         document.getElementById('tableFilter').addEventListener('change', this.applyFilters.bind(this));
         document.getElementById('sortBy').addEventListener('change', this.applyFilters.bind(this));
-        document.getElementById('startTime').addEventListener('change', this.applyFilters.bind(this));
-        document.getElementById('endTime').addEventListener('change', this.applyFilters.bind(this));
+        
+        // 初始化时间选择器
+        this.initializeDatePickers();
+    }
+
+    initializeDatePickers() {
+        // 初始化flatpickr时间选择器
+        const pickerConfig = {
+            enableTime: true,
+            enableSeconds: true,
+            dateFormat: 'Y-m-d H:i:S',
+            time_24hr: true,
+            locale: 'zh',
+            allowInput: true,
+            clickOpens: true,
+            minuteIncrement: 1,
+            secondIncrement: 1,
+            defaultHour: 0,
+            defaultMinute: 0,
+            onClose: () => {
+                // 延迟执行筛选，确保值已更新
+                setTimeout(() => this.applyFilters(), 100);
+            },
+            onChange: () => {
+                // 延迟执行筛选，确保值已更新
+                setTimeout(() => this.applyFilters(), 100);
+            },
+            onOpen: (selectedDates, dateStr, instance) => {
+                // 打开时设置为binlog时间范围
+                if (this.operations.length > 0 && selectedDates.length === 0) {
+                    const timestamps = this.operations
+                        .map(op => this.parseTimestamp(op.timestamp))
+                        .filter(t => t !== null)
+                        .sort((a, b) => a - b);
+                    
+                    if (timestamps.length > 0) {
+                        const isStartPicker = instance.element.id === 'startTime';
+                        const defaultTime = isStartPicker ? timestamps[0] : timestamps[timestamps.length - 1];
+                        instance.setDate(defaultTime, false); // false = 不触发onChange
+                    }
+                }
+            }
+        };
+
+        this.startTimePicker = flatpickr('#startTime', pickerConfig);
+        this.endTimePicker = flatpickr('#endTime', pickerConfig);
+        
+        // 添加手动输入监听
+        document.getElementById('startTime').addEventListener('blur', () => {
+            setTimeout(() => this.applyFilters(), 100);
+        });
+        
+        document.getElementById('endTime').addEventListener('blur', () => {
+            setTimeout(() => this.applyFilters(), 100);
+        });
     }
 
     handleDragOver(e) {
@@ -177,23 +233,22 @@ class BinlogAnalyzer {
             const earliest = timestamps[0];
             const latest = timestamps[timestamps.length - 1];
             
-            const startTimeInput = document.getElementById('startTime');
-            const endTimeInput = document.getElementById('endTime');
+            // 设置flatpickr的最小和最大日期
+            if (this.startTimePicker) {
+                this.startTimePicker.set('minDate', earliest);
+                this.startTimePicker.set('maxDate', latest);
+                this.startTimePicker.clear();
+            }
             
-            // 只设置输入框的最小和最大值，不设置默认值
-            // 这样时间筛选默认不生效，用户需要手动选择
-            startTimeInput.min = this.formatDateTimeLocal(earliest);
-            startTimeInput.max = this.formatDateTimeLocal(latest);
-            endTimeInput.min = this.formatDateTimeLocal(earliest);
-            endTimeInput.max = this.formatDateTimeLocal(latest);
+            if (this.endTimePicker) {
+                this.endTimePicker.set('minDate', earliest);
+                this.endTimePicker.set('maxDate', latest);
+                this.endTimePicker.clear();
+            }
             
-            // 设置placeholder提示用户时间范围
-            startTimeInput.placeholder = `最早: ${this.formatDateTime(earliest)}`;
-            endTimeInput.placeholder = `最晚: ${this.formatDateTime(latest)}`;
-            
-            // 清空默认值，确保时间筛选不自动生效
-            startTimeInput.value = '';
-            endTimeInput.value = '';
+            // 更新placeholder
+            document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(earliest)}`;
+            document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(latest)}`;
         }
     }
 
@@ -263,8 +318,24 @@ class BinlogAnalyzer {
         const databaseFilter = document.getElementById('databaseFilter').value;
         const tableFilter = document.getElementById('tableFilter').value;
         const sortBy = document.getElementById('sortBy').value;
-        const startTime = document.getElementById('startTime').value;
-        const endTime = document.getElementById('endTime').value;
+        
+        // 获取时间值，优先使用flatpickr的值
+        let startTime = '';
+        let endTime = '';
+        
+        if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
+            startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+        } else {
+            startTime = document.getElementById('startTime').value;
+        }
+        
+        if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
+            endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+        } else {
+            endTime = document.getElementById('endTime').value;
+        }
+        
+        console.log('Time filter:', { startTime, endTime }); // 调试日志
 
         // 应用筛选
         this.filteredOperations = this.operations.filter(op => {
@@ -280,14 +351,24 @@ class BinlogAnalyzer {
                 const opTime = this.parseTimestamp(op.timestamp);
                 if (!opTime) return false;
                 
-                if (startTime) {
+                if (startTime && startTime.trim()) {
+                    // 支持秒级精度的时间比较
                     const start = new Date(startTime);
-                    if (opTime < start) return false;
+                    if (isNaN(start.getTime())) {
+                        console.warn('无效的开始时间:', startTime);
+                    } else if (opTime.getTime() < start.getTime()) {
+                        return false;
+                    }
                 }
                 
-                if (endTime) {
+                if (endTime && endTime.trim()) {
+                    // 支持秒级精度的时间比较
                     const end = new Date(endTime);
-                    if (opTime > end) return false;
+                    if (isNaN(end.getTime())) {
+                        console.warn('无效的结束时间:', endTime);
+                    } else if (opTime.getTime() > end.getTime()) {
+                        return false;
+                    }
                 }
             }
             
@@ -296,20 +377,47 @@ class BinlogAnalyzer {
 
         // 应用排序
         this.filteredOperations.sort((a, b) => {
-            switch (sortBy) {
+            let result = 0;
+            
+            switch (this.currentSort.field) {
                 case 'timestamp':
                     const timeA = this.parseTimestamp(a.timestamp);
                     const timeB = this.parseTimestamp(b.timestamp);
-                    return (timeA || new Date(0)) - (timeB || new Date(0));
+                    result = (timeA || new Date(0)) - (timeB || new Date(0));
+                    break;
                 case 'type':
-                    return a.type.localeCompare(b.type);
+                    result = a.type.localeCompare(b.type);
+                    break;
                 case 'database':
-                    return a.database.localeCompare(b.database);
+                    result = a.database.localeCompare(b.database);
+                    break;
                 case 'table':
-                    return a.table.localeCompare(b.table);
+                    result = a.table.localeCompare(b.table);
+                    break;
                 default:
-                    return 0;
+                    // 兼容旧的sortBy选择器
+                    switch (sortBy) {
+                        case 'timestamp':
+                            const timeA2 = this.parseTimestamp(a.timestamp);
+                            const timeB2 = this.parseTimestamp(b.timestamp);
+                            result = (timeA2 || new Date(0)) - (timeB2 || new Date(0));
+                            break;
+                        case 'type':
+                            result = a.type.localeCompare(b.type);
+                            break;
+                        case 'database':
+                            result = a.database.localeCompare(b.database);
+                            break;
+                        case 'table':
+                            result = a.table.localeCompare(b.table);
+                            break;
+                        default:
+                            result = 0;
+                    }
             }
+            
+            // 应用排序方向
+            return this.currentSort.order === 'desc' ? -result : result;
         });
 
         this.displayOperations();
@@ -375,8 +483,12 @@ class BinlogAnalyzer {
     }
 
     clearTimeFilter() {
-        document.getElementById('startTime').value = '';
-        document.getElementById('endTime').value = '';
+        if (this.startTimePicker) {
+            this.startTimePicker.clear();
+        }
+        if (this.endTimePicker) {
+            this.endTimePicker.clear();
+        }
         this.applyFilters();
         this.showNotification('时间筛选已清除', 'success');
     }
@@ -394,10 +506,6 @@ class BinlogAnalyzer {
         
         const earliest = timestamps[0];
         const latest = timestamps[timestamps.length - 1];
-        const now = new Date();
-        
-        const startTimeInput = document.getElementById('startTime');
-        const endTimeInput = document.getElementById('endTime');
         
         let startTime, endTime;
         
@@ -417,17 +525,43 @@ class BinlogAnalyzer {
                 if (startTime < earliest) startTime = earliest;
                 break;
             case 'today':
-                const today = new Date(latest);
-                today.setHours(0, 0, 0, 0);
-                startTime = today > earliest ? today : earliest;
+                // 使用binlog最早时间的当天开始
+                const binlogDay = new Date(earliest);
+                binlogDay.setHours(0, 0, 0, 0);
+                startTime = binlogDay;
+                // 使用binlog最晚时间或当天结束
+                const dayEnd = new Date(binlogDay);
+                dayEnd.setHours(23, 59, 59, 999);
+                endTime = latest < dayEnd ? latest : dayEnd;
+                break;
+            case 'earliest':
+                // 新增：默认为binlog最早时间
+                startTime = earliest;
+                endTime = null;
+                break;
+            case 'latest':
+                // 新增：默认为binlog最晚时间
+                startTime = null;
                 endTime = latest;
                 break;
             default:
                 return;
         }
         
-        startTimeInput.value = this.formatDateTimeLocal(startTime);
-        endTimeInput.value = this.formatDateTimeLocal(endTime);
+        if (startTime && this.startTimePicker) {
+            this.startTimePicker.setDate(startTime);
+        }
+        if (endTime && this.endTimePicker) {
+            this.endTimePicker.setDate(endTime);
+        }
+        
+        // 如果只设置了开始或结束时间，清空另一个
+        if (startTime && !endTime && this.endTimePicker) {
+            this.endTimePicker.clear();
+        }
+        if (endTime && !startTime && this.startTimePicker) {
+            this.startTimePicker.clear();
+        }
         
         this.applyTimeFilter();
     }
@@ -517,13 +651,36 @@ class BinlogAnalyzer {
         const filteredCount = document.getElementById('filteredCount');
         
         tbody.innerHTML = '';
-        filteredCount.textContent = `${this.filteredOperations.length} 条记录`;
+        
+        // 计算分页
+        const totalItems = this.filteredOperations.length;
+        const totalPages = Math.ceil(totalItems / this.pageSize);
+        const startIndex = (this.currentPage - 1) * this.pageSize;
+        const endIndex = Math.min(startIndex + this.pageSize, totalItems);
+        const currentPageData = this.filteredOperations.slice(startIndex, endIndex);
+        
+        // 更新计数显示
+        filteredCount.innerHTML = `
+            <div class="d-flex align-items-center gap-3">
+                <span>${totalItems} 条记录</span>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0 small">每页:</label>
+                    <select class="form-select form-select-sm" style="width: 80px;" onchange="analyzer.changePageSize(this.value)">
+                        <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
+                        <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
+                        <option value="200" ${this.pageSize === 200 ? 'selected' : ''}>200</option>
+                        <option value="500" ${this.pageSize === 500 ? 'selected' : ''}>500</option>
+                        <option value="${totalItems}" ${this.pageSize >= totalItems ? 'selected' : ''}>全部</option>
+                    </select>
+                </div>
+                ${totalPages > 1 ? `<span class="small text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</span>` : ''}
+            </div>
+        `;
 
-        this.filteredOperations.forEach((op, index) => {
+        currentPageData.forEach((op, pageIndex) => {
+            const globalIndex = startIndex + pageIndex; // 全局索引
             const row = document.createElement('tr');
             row.className = `operation-${op.type.toLowerCase()}`;
-            
-            const operationDetails = this.formatOperationDetails(op);
             
             const formattedTime = this.formatTimestamp(op.timestamp);
             
@@ -536,7 +693,7 @@ class BinlogAnalyzer {
                 <td>${op.table}</td>
                 <td>${op.serverId || 'N/A'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${index})">
+                    <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${globalIndex})">
                         <i class="fas fa-eye"></i> 查看详情
                     </button>
                 </td>
@@ -544,6 +701,70 @@ class BinlogAnalyzer {
             
             tbody.appendChild(row);
         });
+        
+        // 添加分页导航
+        this.renderPagination(totalPages);
+    }
+    
+    renderPagination(totalPages) {
+        if (totalPages <= 1) return;
+        
+        let paginationHtml = `
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item ${this.currentPage === 1 ? 'disabled' : ''}">
+                        <button class="page-link" onclick="analyzer.goToPage(${this.currentPage - 1})">上一页</button>
+                    </li>
+        `;
+        
+        // 显示页码
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        if (startPage > 1) {
+            paginationHtml += `<li class="page-item"><button class="page-link" onclick="analyzer.goToPage(1)">1</button></li>`;
+            if (startPage > 2) {
+                paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHtml += `
+                <li class="page-item ${i === this.currentPage ? 'active' : ''}">
+                    <button class="page-link" onclick="analyzer.goToPage(${i})">${i}</button>
+                </li>
+            `;
+        }
+        
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+            paginationHtml += `<li class="page-item"><button class="page-link" onclick="analyzer.goToPage(${totalPages})">${totalPages}</button></li>`;
+        }
+        
+        paginationHtml += `
+                    <li class="page-item ${this.currentPage === totalPages ? 'disabled' : ''}">
+                        <button class="page-link" onclick="analyzer.goToPage(${this.currentPage + 1})">下一页</button>
+                    </li>
+                </ul>
+            </nav>
+        `;
+        
+        // 添加到表格下方
+        const tableContainer = document.querySelector('#operationsSection .card-body');
+        let paginationContainer = document.getElementById('paginationContainer');
+        if (!paginationContainer) {
+            paginationContainer = document.createElement('div');
+            paginationContainer.id = 'paginationContainer';
+            tableContainer.appendChild(paginationContainer);
+        }
+        paginationContainer.innerHTML = paginationHtml;
     }
 
     formatOperationDetails(operation) {
@@ -633,6 +854,29 @@ class BinlogAnalyzer {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+    // 时间排序方法
+    sortByTime(order) {
+        this.currentSort = { field: 'timestamp', order: order };
+        this.currentPage = 1; // 重置到第一页
+        this.applyFilters();
+        this.showNotification(`已按时间${order === 'asc' ? '正序' : '倒序'}排列`, 'success');
+    }
+
+    // 分页方法
+    goToPage(page) {
+        const totalPages = Math.ceil(this.filteredOperations.length / this.pageSize);
+        if (page >= 1 && page <= totalPages) {
+            this.currentPage = page;
+            this.displayOperations();
+        }
+    }
+
+    changePageSize(size) {
+        this.pageSize = parseInt(size);
+        this.currentPage = 1;
+        this.displayOperations();
+    }
+
     showOperationDetails(index) {
         const operation = this.filteredOperations[index];
         
@@ -670,42 +914,58 @@ class BinlogAnalyzer {
         `;
 
         if (operation.type === 'UPDATE') {
-            if (operation.setValues && operation.setValues.length > 0) {
+            // 创建合并的对比表格
+            const allColumns = new Set();
+            operation.setValues?.forEach(v => allColumns.add(v.column));
+            operation.whereConditions?.forEach(w => allColumns.add(w.column));
+            
+            if (allColumns.size > 0) {
+                const sortedColumns = Array.from(allColumns).sort((a, b) => a - b);
+                
                 modalContent += `
-                    <h6>SET 值 (新值):</h6>
+                    <h6>值变更对比:</h6>
                     <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead><tr><th>列</th><th>新值</th></tr></thead>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>列</th>
+                                    <th class="text-danger">旧值 (WHERE)</th>
+                                    <th class="text-success">新值 (SET)</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                                ${operation.setValues.map(v => {
-                                    // 检查是否有对应的WHERE条件值不同
-                                    const whereValue = operation.whereConditions?.find(w => w.column === v.column);
-                                    const isDifferent = whereValue && whereValue.value !== v.value;
-                                    const bgColor = isDifferent ? 'background-color: #d4edda;' : '';
-                                    return `<tr><td>@${v.column}</td><td style="${bgColor}">${v.value}</td></tr>`;
+                                ${sortedColumns.map(column => {
+                                    const oldValue = operation.whereConditions?.find(w => w.column === column);
+                                    const newValue = operation.setValues?.find(s => s.column === column);
+                                    
+                                    const oldVal = oldValue ? oldValue.value : '-';
+                                    const newVal = newValue ? newValue.value : '-';
+                                    const isChanged = oldVal !== newVal && oldVal !== '-' && newVal !== '-';
+                                    
+                                    const oldStyle = isChanged ? 'background-color: #f8d7da; font-weight: bold;' : '';
+                                    const newStyle = isChanged ? 'background-color: #d4edda; font-weight: bold;' : '';
+                                    const statusBadge = isChanged ? 
+                                        '<span class="badge bg-warning text-dark"><i class="fas fa-exchange-alt"></i> 已变更</span>' : 
+                                        '<span class="badge bg-secondary"><i class="fas fa-minus"></i> 未变更</span>';
+                                    
+                                    return `<tr>
+                                        <td><strong>@${column}</strong></td>
+                                        <td style="${oldStyle}">${oldVal}</td>
+                                        <td style="${newStyle}">${newVal}</td>
+                                        <td>${statusBadge}</td>
+                                    </tr>`;
                                 }).join('')}
                             </tbody>
                         </table>
                     </div>
-                `;
-            }
-
-            if (operation.whereConditions && operation.whereConditions.length > 0) {
-                modalContent += `
-                    <h6>WHERE 条件 (旧值):</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead><tr><th>列</th><th>旧值</th></tr></thead>
-                            <tbody>
-                                ${operation.whereConditions.map(w => {
-                                    // 检查是否有对应的SET值不同
-                                    const setValue = operation.setValues?.find(s => s.column === w.column);
-                                    const isDifferent = setValue && setValue.value !== w.value;
-                                    const bgColor = isDifferent ? 'background-color: #f8d7da;' : '';
-                                    return `<tr><td>@${w.column}</td><td style="${bgColor}">${w.value}</td></tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
+                    <div class="alert alert-info py-2 mt-2">
+                        <small>
+                            <i class="fas fa-info-circle"></i>
+                            <strong>颜色说明:</strong>
+                            <span class="ms-2" style="background-color: #f8d7da; color: #721c24; padding: 2px 6px; border-radius: 3px;">红色</span> 旧值
+                            <span class="ms-2" style="background-color: #d4edda; color: #155724; padding: 2px 6px; border-radius: 3px;">绿色</span> 新值
+                        </small>
                     </div>
                 `;
             }

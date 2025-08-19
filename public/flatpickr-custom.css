@@ -1,0 +1,35 @@
+/* 自定义flatpickr样式 */
+.flatpickr-calendar {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.flatpickr-time input {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.flatpickr-time .flatpickr-time-separator {
+    font-weight: bold;
+    color: #666;
+}
+
+.flatpickr-calendar.hasTime .flatpickr-time {
+    border-top: 1px solid #e6e6e6;
+    background: #f8f9fa;
+}
+
+/* 秒数输入框样式 */
+.flatpickr-second {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+}
+
+/* 时间输入框获得焦点时的样式 */
+.flatpickr-time input:focus {
+    background: #e3f2fd !important;
+    border-color: #2196f3 !important;
+    outline: none;
+}

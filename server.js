@@ -4,9 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const DatabaseManager = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const dbManager = new DatabaseManager();
 
 // 中间件
 app.use(cors());
@@ -90,7 +92,6 @@ function parseBinlog(filePath) {
     const mysqlbinlog = spawn('mysqlbinlog', [
       '-v', 
       '--base64-output=DECODE-ROWS',
-      '--start-datetime=1970-01-01 00:00:00',
       filePath
     ]);
     let output = '';
@@ -117,7 +118,11 @@ function parseBinlog(filePath) {
 
     mysqlbinlog.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`mysqlbinlog进程退出，代码: ${code}, 错误: ${error}`));
+        console.error(`mysqlbinlog错误详情:`);
+        console.error(`  退出代码: ${code}`);
+        console.error(`  错误信息: ${error}`);
+        console.error(`  文件路径: ${filePath}`);
+        reject(new Error(`mysqlbinlog解析失败: ${error || '未知错误'}`));
       } else {
         console.log(`解析完成，输出大小: ${(outputSize / (1024 * 1024)).toFixed(2)} MB`);
         resolve(output);
@@ -140,14 +145,17 @@ function parseOperations(binlogOutput) {
   let currentServerId = null;
   let currentSection = null; // 'SET' 或 'WHERE'
   let processedLines = 0;
+  let operationTimestamp = null; // 为当前操作保留的时间戳
   
   console.log(`开始解析 ${totalLines} 行binlog输出...`);
   
-  // 调试：显示前几行内容来了解格式
-  console.log('Binlog输出样本（前10行）:');
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    if (lines[i].trim()) {
-      console.log(`  ${i}: ${lines[i].trim()}`);
+  // 调试：显示前几行内容来了解格式（仅在调试模式下）
+  if (process.env.DEBUG) {
+    console.log('Binlog输出样本（前10行）:');
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      if (lines[i].trim()) {
+        console.log(`  ${i}: ${lines[i].trim()}`);
+      }
     }
   }
 
@@ -161,11 +169,16 @@ function parseOperations(binlogOutput) {
       console.log(`解析进度: ${progress}% (${processedLines}/${totalLines})`);
     }
 
-    // 限制操作数量，避免内存溢出
-    if (operations.length > 10000) {
-      console.log('警告: 操作数量超过10000，停止解析以避免内存溢出');
-      console.log('建议分割binlog文件或增加服务器内存');
-      break;
+    // 内存监控，但不限制数量
+    if (operations.length > 0 && operations.length % 5000 === 0) {
+      const currentMemory = getMemoryUsage();
+      console.log(`已解析 ${operations.length} 个操作，内存使用: ${currentMemory.heapUsed} MB`);
+      
+      // 只有在内存使用超过限制时才停止
+      if (currentMemory.heapUsed > 1000) { // 1GB限制
+        console.log('警告: 内存使用超过1GB，停止解析以避免内存溢出');
+        break;
+      }
     }
 
     // 解析时间戳 - 支持多种格式
@@ -205,8 +218,10 @@ function parseOperations(binlogOutput) {
         const timeStr = timestampMatch[2];
         currentServerId = timestampMatch[3];
         
-        console.log(`调试时间戳解析: 行="${line}"`);
-        console.log(`  -> 原始="${dateTimeStr}", 时间="${timeStr}", 服务器ID="${currentServerId}"`);
+        if (process.env.DEBUG) {
+          console.log(`调试时间戳解析: 行="${line}"`);
+          console.log(`  -> 原始="${dateTimeStr}", 时间="${timeStr}", 服务器ID="${currentServerId}"`);
+        }
         
         // 处理不同的时间格式
         if (dateTimeStr.length === 6 && /^\d{6}$/.test(dateTimeStr)) {
@@ -215,7 +230,6 @@ function parseOperations(binlogOutput) {
           const month = dateTimeStr.substring(2, 4);
           const day = dateTimeStr.substring(4, 6);
           currentTimestamp = `${year}-${month}-${day} ${timeStr}`;
-          console.log(`  -> 解析为YYMMDD格式: ${currentTimestamp}`);
         } else if (dateTimeStr.length === 10 && /^\d{10}$/.test(dateTimeStr)) {
           // Unix时间戳 (10位数字)
           const unixTimestamp = parseInt(dateTimeStr);
@@ -228,26 +242,21 @@ function parseOperations(binlogOutput) {
             } else {
               currentTimestamp = date.toISOString().slice(0, 19).replace('T', ' ');
             }
-            console.log(`  -> 解析为Unix时间戳: ${unixTimestamp} -> ${currentTimestamp}`);
           } else {
             currentTimestamp = `${dateTimeStr} ${timeStr}`;
-            console.log(`  -> 无效Unix时间戳，使用原始: ${currentTimestamp}`);
           }
         } else if (dateTimeStr.includes('-')) {
           // 已经是标准日期格式 YYYY-MM-DD
           currentTimestamp = `${dateTimeStr} ${timeStr}`;
-          console.log(`  -> 标准日期格式: ${currentTimestamp}`);
         } else if (dateTimeStr.length === 8 && /^\d{8}$/.test(dateTimeStr)) {
           // 格式: YYYYMMDD (如 20241201)
           const year = dateTimeStr.substring(0, 4);
           const month = dateTimeStr.substring(4, 6);
           const day = dateTimeStr.substring(6, 8);
           currentTimestamp = `${year}-${month}-${day} ${timeStr}`;
-          console.log(`  -> 解析为YYYYMMDD格式: ${currentTimestamp}`);
         } else {
           // 其他格式，尝试直接解析
           currentTimestamp = `${dateTimeStr} ${timeStr}`;
-          console.log(`  -> 其他格式，直接使用: ${currentTimestamp}`);
         }
       }
     }
@@ -260,10 +269,10 @@ function parseOperations(binlogOutput) {
         if (unixTimestamp > 946684800) { // 2000年1月1日后
           const date = new Date(unixTimestamp * 1000);
           const newTimestamp = date.toISOString().slice(0, 19).replace('T', ' ');
-          console.log(`从SET TIMESTAMP解析: ${unixTimestamp} -> ${newTimestamp}`);
-          // 只有在没有当前时间戳或新时间戳更合理时才更新
-          if (!currentTimestamp || (currentTimestamp.includes('1970') && !newTimestamp.includes('1970'))) {
-            currentTimestamp = newTimestamp;
+          // 总是更新时间戳，SET TIMESTAMP是最准确的
+          currentTimestamp = newTimestamp;
+          if (process.env.DEBUG) {
+            console.log(`从SET TIMESTAMP解析: ${unixTimestamp} -> ${newTimestamp}`);
           }
         }
       }
@@ -274,29 +283,52 @@ function parseOperations(binlogOutput) {
       const dateMatch = line.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/);
       if (dateMatch) {
         currentTimestamp = `${dateMatch[1]} ${dateMatch[2]}`;
-        console.log(`从其他行解析时间戳: ${currentTimestamp}`);
+        if (process.env.DEBUG) {
+          console.log(`从其他行解析时间戳: ${currentTimestamp}`);
+        }
       }
     }
 
-    // 检测操作类型
-    if (line.includes('### INSERT INTO') || line.includes('### UPDATE') || line.includes('### DELETE FROM')) {
-      if (currentOperation) {
-        // 生成SQL语句
+    // 检测事务边界或新操作，保存上一个操作
+    const isNewOperation = line.includes('### INSERT INTO') || line.includes('### UPDATE') || line.includes('### DELETE FROM');
+    const isTransactionBoundary = line.includes('COMMIT') || line.includes('BEGIN') || line.includes('ROLLBACK') || 
+                                 line.includes('# at ') || line.includes('server id') || 
+                                 (line.startsWith('#') && line.includes('end_log_pos'));
+    
+    // 先保存上一个操作（在创建新操作或遇到事务边界时）
+    if (currentOperation && (isNewOperation || isTransactionBoundary)) {
+      // 检查操作是否有数据
+      const hasData = (currentOperation.type === 'UPDATE' && 
+                      (currentOperation.setValues.length > 0 || currentOperation.whereConditions.length > 0)) ||
+                     ((currentOperation.type === 'INSERT' || currentOperation.type === 'DELETE') && 
+                      currentOperation.values.length > 0);
+      
+      if (hasData) {
         generateSQLStatements(currentOperation);
         operations.push(currentOperation);
+        if (operations.length % 100 === 0) {
+          console.log(`已保存 ${operations.length} 个操作...`);
+        }
       }
-
+      currentOperation = null;
+    }
+    
+    // 检测操作类型
+    if (isNewOperation) {
       currentSection = null;
       const operationType = line.includes('INSERT') ? 'INSERT' : 
                            line.includes('UPDATE') ? 'UPDATE' : 'DELETE';
       const tableMatch = line.match(/###\s+(INSERT INTO|UPDATE|DELETE FROM)\s+`?([^`\s]+)`?\.`?([^`\s]+)`?/);
+      
+      // 为新操作获取当前最新的时间戳（创建时的快照）
+      const operationTimestamp = currentTimestamp; // 使用当前时间戳的快照
       
       // 为每个操作创建独立的时间戳副本
       currentOperation = {
         type: operationType,
         database: tableMatch ? tableMatch[2] : 'unknown',
         table: tableMatch ? tableMatch[3] : 'unknown',
-        timestamp: currentTimestamp, // 使用当前最新的时间戳
+        timestamp: operationTimestamp, // 使用创建时的时间戳快照
         serverId: currentServerId,
         setValues: [],      // UPDATE操作的新值
         whereConditions: [], // WHERE条件（旧值）
@@ -305,7 +337,13 @@ function parseOperations(binlogOutput) {
         reverseSQL: ''
       };
       
-      console.log(`创建新操作: ${operationType} ${currentOperation.database}.${currentOperation.table} 时间戳: ${currentTimestamp}`);
+      if (process.env.DEBUG && operations.length < 5) {
+        console.log(`创建操作 #${operations.length + 1}: ${operationType} ${currentOperation.database}.${currentOperation.table} 时间: ${operationTimestamp}`);
+      }
+      
+      if (operations.length % 100 === 0 && operations.length > 0) {
+        console.log(`已创建 ${operations.length} 个操作...`);
+      }
     }
 
     // 检测SET部分（UPDATE操作的新值）
@@ -340,16 +378,24 @@ function parseOperations(binlogOutput) {
       }
     }
     
-    // 如果当前操作存在但还没有时间戳，尝试使用最新的时间戳
-    if (currentOperation && !currentOperation.timestamp && currentTimestamp) {
-      currentOperation.timestamp = currentTimestamp;
-      console.log(`为操作 ${currentOperation.type} ${currentOperation.database}.${currentOperation.table} 更新时间戳: ${currentTimestamp}`);
-    }
+    // 不再更新已创建操作的时间戳，保持独立性
   }
 
+  // 保存最后一个操作
   if (currentOperation) {
-    generateSQLStatements(currentOperation);
-    operations.push(currentOperation);
+    const hasData = (currentOperation.type === 'UPDATE' && 
+                    (currentOperation.setValues.length > 0 || currentOperation.whereConditions.length > 0)) ||
+                   ((currentOperation.type === 'INSERT' || currentOperation.type === 'DELETE') && 
+                    currentOperation.values.length > 0);
+    
+    if (hasData) {
+      // 确保最后一个操作有时间戳
+      if (!currentOperation.timestamp && currentTimestamp) {
+        currentOperation.timestamp = currentTimestamp;
+      }
+      generateSQLStatements(currentOperation);
+      operations.push(currentOperation);
+    }
   }
 
   console.log(`解析完成，共找到 ${operations.length} 个操作`);
@@ -475,6 +521,16 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     console.log('开始提取操作...');
     const operations = parseOperations(binlogOutput);
     
+    // 尝试保存到数据库（所有文件）
+    let sessionId = null;
+    if (dbManager.useDatabase && operations.length > 0) {
+      sessionId = dbManager.generateSessionId();
+      const saved = await dbManager.saveOperations(sessionId, operations);
+      if (saved) {
+        console.log(`数据已保存到数据库，会话 ID: ${sessionId}`);
+      }
+    }
+    
     // 清理binlog输出以释放内存
     // binlogOutput = null; // 这行会导致错误，因为binlogOutput是const
     
@@ -491,8 +547,10 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
 
     res.json({
       success: true,
-      operations: operations,
+      operations: sessionId ? operations.slice(0, 100) : operations, // 大文件只返回前100条预览
       total: operations.length,
+      sessionId: sessionId,
+      useDatabase: !!sessionId,
       memoryUsage: finalMemory
     });
 
@@ -569,7 +627,10 @@ function getLocalIP() {
 }
 
 // 启动服务器，自动寻找可用端口
-function startServer(port) {
+async function startServer(port) {
+  // 初始化数据库连接
+  await dbManager.connect();
+  
   const server = app.listen(port, '0.0.0.0', () => {
     const localIPs = getLocalIP();
     console.log(`🚀 MySQL Binlog 分析工具启动成功！`);
@@ -583,6 +644,7 @@ function startServer(port) {
     }
     
     console.log(`📁 测试文件: test-data/test-binlog.log`);
+    console.log(`💾 数据库支持: ${dbManager.useDatabase ? '已启用' : '未启用（使用内存存储）'}`);
     console.log(`⏹️  停止服务: Ctrl+C`);
   }).on('error', (err) => {
     if (err.code === 'EADDRINUSE') {

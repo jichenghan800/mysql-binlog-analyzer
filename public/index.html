@@ -6,6 +6,8 @@
     <title>MySQL Binlog 分析工具</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="flatpickr-custom.css">
     <style>
         .upload-area {
             border: 2px dashed #dee2e6;
@@ -189,11 +191,11 @@
                     <div class="row mt-3">
                         <div class="col-md-3">
                             <label class="form-label">开始时间</label>
-                            <input type="datetime-local" class="form-control" id="startTime">
+                            <input type="text" class="form-control" id="startTime" placeholder="选择开始时间">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">结束时间</label>
-                            <input type="datetime-local" class="form-control" id="endTime">
+                            <input type="text" class="form-control" id="endTime" placeholder="选择结束时间">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">&nbsp;</label>
@@ -227,6 +229,12 @@
                             <button class="btn btn-sm btn-outline-info me-2" onclick="analyzer.setTimeRange('today')">
                                 今天
                             </button>
+                            <button class="btn btn-sm btn-outline-success me-2" onclick="analyzer.setTimeRange('earliest')">
+                                最早时间
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning me-2" onclick="analyzer.setTimeRange('latest')">
+                                最晚时间
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -246,13 +254,24 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>时间</th>
+                                        <th>
+                                            <div class="d-flex align-items-center">
+                                                <span>时间</span>
+                                                <div class="ms-2">
+                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortByTime('asc')" title="时间正序">
+                                                        <i class="fas fa-sort-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortByTime('desc')" title="时间倒序">
+                                                        <i class="fas fa-sort-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </th>
                                         <th>类型</th>
                                         <th>数据库</th>
                                         <th>表名</th>
                                         <th>服务器ID</th>
-                
-                        <th>操作详情</th>
+                                        <th>操作详情</th>
                                     </tr>
                                 </thead>
                                 <tbody id="operationsTable">
@@ -266,6 +285,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
