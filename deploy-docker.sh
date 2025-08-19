@@ -160,7 +160,8 @@ log_info "步骤8: 启动服务..."
 echo "请选择启动模式："
 echo "1) 内存存储模式 (适合小文件测试)"
 echo "2) 数据库存储模式 (适合大文件生产环境)"
-read -p "请输入选择 (1 或 2): " choice
+echo -n "请输入选择 (1 或 2): "
+read choice
 
 case $choice in
     1)
