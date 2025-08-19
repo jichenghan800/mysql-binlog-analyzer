@@ -24,3 +24,4 @@ EXPOSE 3000
 # 设置Node.js内存限制并启动应用
 ENV NODE_OPTIONS="--max-old-space-size=16384"
 CMD ["node", "server.js"]
+CMD ["node", "server.js"]
