@@ -161,7 +161,7 @@ echo "请选择启动模式："
 echo "1) 内存存储模式 (适合小文件测试)"
 echo "2) 数据库存储模式 (适合大文件生产环境)"
 echo -n "请输入选择 (1 或 2): "
-read choice
+read choice < /dev/tty
 
 case $choice in
     1)
