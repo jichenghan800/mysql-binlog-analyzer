@@ -1,10 +1,7 @@
-FROM node:18-slim
+FROM node:18-alpine
 
-# 更新包列表并安装MySQL客户端工具
-RUN apt-get update && \
-    apt-get install -y mysql-client-core-8.0 mysql-client-8.0 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# 安装MySQL客户端工具（包含mysqlbinlog）
+RUN apk add --no-cache mysql mysql-client
 
 # 设置工作目录
 WORKDIR /app
