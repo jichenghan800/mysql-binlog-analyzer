@@ -12,8 +12,8 @@ const dbManager = new DatabaseManager();
 
 // 中间件
 app.use(cors());
-app.use(express.json({ limit: '200mb' })); // 增加JSON请求体大小限制到200MB
-app.use(express.urlencoded({ limit: '200mb', extended: true })); // 增加URL编码请求体大小限制到200MB
+app.use(express.json({ limit: '2gb' })); // 增加JSON请求体大小限制到2GB
+app.use(express.urlencoded({ limit: '2gb', extended: true })); // 增加URL编码请求体大小限制到2GB
 app.use(express.static('public'));
 
 // 配置文件上传
@@ -33,7 +33,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB文件大小限制
+    fileSize: 10 * 1024 * 1024 * 1024 // 10GB文件大小限制 (高内存服务器)
   }
 });
 
@@ -103,7 +103,7 @@ function parseBinlog(filePath) {
     let output = '';
     let error = '';
     let outputSize = 0;
-    const maxOutputSize = 500 * 1024 * 1024; // 500MB输出限制 (适合Docker环境)
+    const maxOutputSize = 5 * 1024 * 1024 * 1024; // 5GB输出限制 (高内存服务器)
 
     mysqlbinlog.stdout.on('data', (data) => {
       const chunk = data.toString();
@@ -175,15 +175,15 @@ function parseOperations(binlogOutput) {
       console.log(`解析进度: ${progress}% (${processedLines}/${totalLines})`);
     }
 
-    // 内存监控，但不限制数量
-    if (operations.length > 0 && operations.length % 5000 === 0) {
+    // 内存监控，高内存服务器配置
+    if (operations.length > 0 && operations.length % 10000 === 0) {
       const currentMemory = getMemoryUsage();
       console.log(`已解析 ${operations.length} 个操作，内存使用: ${currentMemory.heapUsed} MB`);
       
-      // 只有在内存使用超过限制时才停止
-      if (currentMemory.heapUsed > 1000) { // 1GB限制
-        console.log('警告: 内存使用超过1GB，停止解析以避免内存溢出');
-        break;
+      // 128GB内存服务器，允许使用更多内存
+      if (currentMemory.heapUsed > 20000) { // 20GB限制
+        console.log('警告: 内存使用超过20GB，建议使用数据库存储');
+        // 不停止解析，只是警告
       }
     }
 

@@ -17,9 +17,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 16G
         reservations:
-          memory: 512M
+          memory: 2G
   # 基础应用服务 (内存存储)
   mysql-binlog-analyzer:
     build: .
@@ -58,9 +58,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 32G
         reservations:
-          memory: 1G
+          memory: 4G
     
   # MySQL数据库服务
   mysql:

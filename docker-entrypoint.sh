@@ -17,9 +17,15 @@ if [ $TOTAL_MEM_MB -lt 1024 ]; then
 elif [ $TOTAL_MEM_MB -lt 2048 ]; then
     echo "📈 内存1-2GB，使用标准配置"
     export NODE_OPTIONS="--max-old-space-size=1024"
+elif [ $TOTAL_MEM_MB -lt 8192 ]; then
+    echo "🚀 内存2-8GB，使用高性能配置"
+    export NODE_OPTIONS="--max-old-space-size=4096"
+elif [ $TOTAL_MEM_MB -lt 32768 ]; then
+    echo "💪 内存8-32GB，使用超高性能配置"
+    export NODE_OPTIONS="--max-old-space-size=16384"
 else
-    echo "🚀 内存充足，使用高性能配置"
-    export NODE_OPTIONS="--max-old-space-size=2048"
+    echo "🔥 内存32GB+，使用极限性能配置"
+    export NODE_OPTIONS="--max-old-space-size=32768"
 fi
 
 echo "🔧 Node.js配置: $NODE_OPTIONS"
