@@ -124,6 +124,7 @@ class BinlogAnalyzer {
 
         const progressBar = document.querySelector('#uploadProgress .progress-bar');
         const progressContainer = document.getElementById('uploadProgress');
+        const uploadSection = document.getElementById('uploadSection');
         const progressText = document.querySelector('#uploadProgress .progress-text') || 
                            document.createElement('div');
         
@@ -132,6 +133,8 @@ class BinlogAnalyzer {
             progressContainer.appendChild(progressText);
         }
         
+        // 隐藏上传区域，显示进度条
+        uploadSection.style.display = 'none';
         progressContainer.classList.remove('d-none');
         progressBar.style.width = '0%';
         progressText.textContent = '正在上传文件...';
