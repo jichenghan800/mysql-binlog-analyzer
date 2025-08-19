@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>使用帮助 - MySQL Binlog 分析工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-question-circle text-primary"></i> 使用帮助</h1>
+                    <a href="index.html" class="btn btn-primary">
+                        <i class="fas fa-arrow-left"></i> 返回主页
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SQL示例 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-code"></i> SQL生成示例</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6 class="text-success">INSERT 操作</h6>
+                                <div class="bg-light p-3 rounded mb-2">
+                                    <strong>原始SQL:</strong>
+                                    <code class="d-block mt-1">INSERT INTO `test_db`.`users` (col_1, col_2, col_3) VALUES (1001, '张三', 'zhangsan@example.com');</code>
+                                </div>
+                                <div class="bg-light p-3 rounded">
+                                    <strong>回滚SQL:</strong>
+                                    <code class="d-block mt-1">DELETE FROM `test_db`.`users` WHERE col_1 = 1001 AND col_2 = '张三' AND col_3 = 'zhangsan@example.com';</code>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-warning">UPDATE 操作</h6>
+                                <div class="bg-light p-3 rounded mb-2">
+                                    <strong>原始SQL:</strong>
+                                    <code class="d-block mt-1">UPDATE `test_db`.`users` SET col_3 = 'new@example.com' WHERE col_1 = 1001;</code>
+                                </div>
+                                <div class="bg-light p-3 rounded">
+                                    <strong>回滚SQL:</strong>
+                                    <code class="d-block mt-1">UPDATE `test_db`.`users` SET col_3 = 'old@example.com' WHERE col_3 = 'new@example.com';</code>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-danger">DELETE 操作</h6>
+                                <div class="bg-light p-3 rounded mb-2">
+                                    <strong>原始SQL:</strong>
+                                    <code class="d-block mt-1">DELETE FROM `test_db`.`users` WHERE col_1 = 1001;</code>
+                                </div>
+                                <div class="bg-light p-3 rounded">
+                                    <strong>回滚SQL:</strong>
+                                    <code class="d-block mt-1">INSERT INTO `test_db`.`users` (col_1, col_2, col_3) VALUES (1001, '张三', 'zhangsan@example.com');</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用场景 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-lightbulb"></i> 使用场景</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-undo text-warning"></i> 数据恢复</h6>
+                                <p>当误操作导致数据丢失时，使用回滚SQL进行数据恢复：</p>
+                                <ul>
+                                    <li>误删数据：使用DELETE的回滚SQL（INSERT）恢复</li>
+                                    <li>误改数据：使用UPDATE的回滚SQL恢复原值</li>
+                                    <li>误插数据：使用INSERT的回滚SQL（DELETE）删除</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-search text-info"></i> 操作审计</h6>
+                                <p>通过原始SQL了解数据库的具体操作：</p>
+                                <ul>
+                                    <li>查看具体的数据变更内容</li>
+                                    <li>分析操作模式和频率</li>
+                                    <li>识别异常操作和性能问题</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作步骤 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-list-ol"></i> 操作步骤</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>1. 上传文件</h6>
+                                <p>拖拽或点击上传MySQL binlog文件</p>
+                                
+                                <h6>2. 查看统计</h6>
+                                <p>查看操作总数和各类型操作的统计</p>
+                                
+                                <h6>3. 筛选数据</h6>
+                                <p>使用筛选器按类型、数据库、表名筛选</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>4. 查看SQL</h6>
+                                <p>点击"原始"或"回滚"按钮查看SQL语句</p>
+                                
+                                <h6>5. 复制使用</h6>
+                                <p>一键复制SQL语句到剪贴板</p>
+                                
+                                <h6>6. 查看详情</h6>
+                                <p>点击"查看详情"了解操作的完整信息</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 注意事项 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5><i class="fas fa-exclamation-triangle"></i> 重要提示</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <h6>列名显示</h6>
+                            <p>由于binlog中只记录列的位置索引，工具显示为 <code>col_1</code>, <code>col_2</code> 等。在实际使用时，需要根据表结构替换为真实的列名。</p>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6>数据恢复流程</h6>
+                            <ol>
+                                <li>备份当前数据</li>
+                                <li>在测试环境验证回滚SQL</li>
+                                <li>确认无误后在生产环境执行</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="alert alert-danger">
+                            <h6>安全提醒</h6>
+                            <p>执行回滚SQL前请务必备份数据，避免造成不可逆的数据损失。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 测试数据 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-flask"></i> 测试数据说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>工具提供了测试数据文件 <code>test-data/test-binlog.log</code>，包含以下操作：</p>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>操作类型</th>
+                                        <th>数据库</th>
+                                        <th>表名</th>
+                                        <th>说明</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="table-success">
+                                        <td><span class="badge bg-success">INSERT</span></td>
+                                        <td>test_db</td>
+                                        <td>users</td>
+                                        <td>插入用户记录</td>
+                                    </tr>
+                                    <tr class="table-warning">
+                                        <td><span class="badge bg-warning">UPDATE</span></td>
+                                        <td>test_db</td>
+                                        <td>users</td>
+                                        <td>更新用户邮箱</td>
+                                    </tr>
+                                    <tr class="table-success">
+                                        <td><span class="badge bg-success">INSERT</span></td>
+                                        <td>test_db</td>
+                                        <td>orders</td>
+                                        <td>插入订单记录</td>
+                                    </tr>
+                                    <tr class="table-danger">
+                                        <td><span class="badge bg-danger">DELETE</span></td>
+                                        <td>test_db</td>
+                                        <td>orders</td>
+                                        <td>删除订单记录</td>
+                                    </tr>
+                                    <tr class="table-success">
+                                        <td><span class="badge bg-success">INSERT</span></td>
+                                        <td>shop_db</td>
+                                        <td>products</td>
+                                        <td>插入商品记录</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

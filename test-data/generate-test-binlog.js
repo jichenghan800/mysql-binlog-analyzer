@@ -1,0 +1,150 @@
+const fs = require('fs');
+const path = require('path');
+
+// 生成测试用的binlog文本内容（模拟mysqlbinlog输出）
+function generateTestBinlogContent() {
+    const content = `/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=1*/;
+/*!50003 SET @OLD_COMPLETION_TYPE=@@COMPLETION_TYPE,COMPLETION_TYPE=0*/;
+DELIMITER /*!*/;
+# at 4
+#241201 10:30:15 server id 1  end_log_pos 123 CRC32 0x12345678 	Start: binlog v 4, server v 8.0.35 created 241201 10:30:15
+# Warning: this binlog is either in use or was not closed properly.
+BINLOG '
+YWJjZGVmZ2hpams=
+'/*!*/;
+# at 123
+#241201 10:30:20 server id 1  end_log_pos 200 CRC32 0x87654321 	Query	thread_id=10	exec_time=0	error_code=0
+SET TIMESTAMP=1733040620/*!*/;
+SET @@session.pseudo_thread_id=10/*!*/;
+SET @@session.foreign_key_checks=1, @@session.sql_auto_is_null=0, @@session.unique_checks=1, @@session.autocommit=1/*!*/;
+SET @@session.sql_mode=1073741824/*!*/;
+SET @@session.auto_increment_increment=1, @@session.auto_increment_offset=1/*!*/;
+/*!\C utf8mb4 *//*!*/;
+SET @@session.character_set_client=255,@@session.collation_connection=255,@@session.collation_server=8/*!*/;
+SET @@session.lc_time_names=0/*!*/;
+SET @@session.collation_database=DEFAULT/*!*/;
+BEGIN
+/*!*/;
+# at 200
+#241201 10:30:21 server id 1  end_log_pos 300 CRC32 0xabcdef12 	Write_rows: table id 108 flags: STMT_END_F
+### INSERT INTO \`test_db\`.\`users\`
+### SET
+###   @1=1001
+###   @2='张三'
+###   @3='zhangsan@example.com'
+###   @4='2024-12-01 10:30:21'
+# at 300
+#241201 10:30:22 server id 1  end_log_pos 400 CRC32 0x12abcdef 	Xid = 12345
+COMMIT/*!*/;
+# at 400
+#241201 10:30:25 server id 1  end_log_pos 500 CRC32 0xfedcba98 	Query	thread_id=11	exec_time=0	error_code=0
+SET TIMESTAMP=1733040625/*!*/;
+SET @@session.pseudo_thread_id=11/*!*/;
+BEGIN
+/*!*/;
+# at 500
+#241201 10:30:26 server id 1  end_log_pos 650 CRC32 0x98765432 	Update_rows: table id 108 flags: STMT_END_F
+### UPDATE \`test_db\`.\`users\`
+### WHERE
+###   @1=1001
+###   @2='张三'
+###   @3='zhangsan@example.com'
+###   @4='2024-12-01 10:30:21'
+### SET
+###   @1=1001
+###   @2='张三'
+###   @3='zhangsan@newmail.com'
+###   @4='2024-12-01 10:30:26'
+# at 650
+#241201 10:30:27 server id 1  end_log_pos 750 CRC32 0x11223344 	Xid = 12346
+COMMIT/*!*/;
+# at 750
+#241201 10:30:30 server id 1  end_log_pos 850 CRC32 0x44332211 	Query	thread_id=12	exec_time=0	error_code=0
+SET TIMESTAMP=1733040630/*!*/;
+SET @@session.pseudo_thread_id=12/*!*/;
+BEGIN
+/*!*/;
+# at 850
+#241201 10:30:31 server id 1  end_log_pos 950 CRC32 0x55667788 	Write_rows: table id 109 flags: STMT_END_F
+### INSERT INTO \`test_db\`.\`orders\`
+### SET
+###   @1=2001
+###   @2=1001
+###   @3=299.99
+###   @4='pending'
+###   @5='2024-12-01 10:30:31'
+# at 950
+#241201 10:30:32 server id 1  end_log_pos 1050 CRC32 0x88776655 	Xid = 12347
+COMMIT/*!*/;
+# at 1050
+#241201 10:30:35 server id 1  end_log_pos 1150 CRC32 0x99aabbcc 	Query	thread_id=13	exec_time=0	error_code=0
+SET TIMESTAMP=1733040635/*!*/;
+SET @@session.pseudo_thread_id=13/*!*/;
+BEGIN
+/*!*/;
+# at 1150
+#241201 10:30:36 server id 1  end_log_pos 1250 CRC32 0xccbbaa99 	Delete_rows: table id 109 flags: STMT_END_F
+### DELETE FROM \`test_db\`.\`orders\`
+### WHERE
+###   @1=2001
+###   @2=1001
+###   @3=299.99
+###   @4='pending'
+###   @5='2024-12-01 10:30:31'
+# at 1250
+#241201 10:30:37 server id 1  end_log_pos 1350 CRC32 0xddeeff00 	Xid = 12348
+COMMIT/*!*/;
+# at 1350
+#241201 10:30:40 server id 1  end_log_pos 1450 CRC32 0x00ffeedd 	Query	thread_id=14	exec_time=0	error_code=0
+SET TIMESTAMP=1733040640/*!*/;
+SET @@session.pseudo_thread_id=14/*!*/;
+BEGIN
+/*!*/;
+# at 1450
+#241201 10:30:41 server id 1  end_log_pos 1600 CRC32 0x12345abc 	Write_rows: table id 110 flags: STMT_END_F
+### INSERT INTO \`shop_db\`.\`products\`
+### SET
+###   @1=3001
+###   @2='iPhone 15'
+###   @3=7999.00
+###   @4=50
+###   @5='electronics'
+###   @6='2024-12-01 10:30:41'
+# at 1600
+#241201 10:30:42 server id 1  end_log_pos 1700 CRC32 0xabc12345 	Xid = 12349
+COMMIT/*!*/;
+DELIMITER ;
+# End of log file
+/*!50003 SET COMPLETION_TYPE=@OLD_COMPLETION_TYPE*/;
+/*!50530 SET @@SESSION.PSEUDO_SLAVE_MODE=0*/;`;
+
+    return content;
+}
+
+// 创建测试binlog文件
+function createTestBinlogFile() {
+    const testDir = path.join(__dirname);
+    if (!fs.existsSync(testDir)) {
+        fs.mkdirSync(testDir, { recursive: true });
+    }
+
+    const binlogContent = generateTestBinlogContent();
+    const filePath = path.join(testDir, 'test-binlog.log');
+    
+    fs.writeFileSync(filePath, binlogContent, 'utf8');
+    console.log(`测试binlog文件已创建: ${filePath}`);
+    console.log('文件包含以下操作:');
+    console.log('- INSERT INTO test_db.users (用户插入)');
+    console.log('- UPDATE test_db.users (用户信息更新)');
+    console.log('- INSERT INTO test_db.orders (订单插入)');
+    console.log('- DELETE FROM test_db.orders (订单删除)');
+    console.log('- INSERT INTO shop_db.products (商品插入)');
+    console.log('\n你可以使用这个文件来测试binlog分析工具的功能。');
+}
+
+// 如果直接运行此脚本
+if (require.main === module) {
+    createTestBinlogFile();
+}
+
+module.exports = { generateTestBinlogContent, createTestBinlogFile };

@@ -1,0 +1,38 @@
+{
+    "name": "mysql-binlog-analyzer",
+    "version": "1.0.0",
+    "description": "MySQL Binlog分析工具 - 解析和分析MySQL binlog文件的Web工具",
+    "main": "server.js",
+    "author": "Your Name",
+    "license": "PRIVATE",
+    "private": true,
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/yourusername/mysql-binlog-analyzer.git"
+    },
+    "keywords": ["mysql", "binlog", "analyzer", "database", "sql"],
+    "scripts": {
+        "start": "node server.js",
+        "start-large": "./start-large-files.sh",
+        "dev": "nodemon server.js",
+        "generate-test": "node test-data/generate-test-binlog.js",
+        "stop": "pkill -f 'node server.js' || true",
+        "restart": "npm run stop && sleep 1 && npm start",
+        "kill-port": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true",
+        "test": "./test.sh",
+        "demo": "./demo.sh",
+        "network-check": "./network-check.sh",
+        "wsl-setup": "./setup-wsl-network.sh",
+        "wsl-test": "./test-wsl-access.sh"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "multer": "^1.4.5-lts.1",
+        "mysql2": "^3.6.5",
+        "moment": "^2.29.4",
+        "cors": "^2.8.5"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    }
+}
