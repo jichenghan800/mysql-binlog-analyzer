@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  mysql-binlog-analyzer:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - USE_DATABASE=false
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    
+  # 可选：MySQL数据库服务
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: binlog123
+      MYSQL_DATABASE: binlog_analyzer
+      MYSQL_USER: binlog_user
+      MYSQL_PASSWORD: binlog_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    profiles:
+      - with-database
+
+volumes:
+  mysql_data:
