@@ -166,14 +166,22 @@ docker images
 # 显示构建过程
 log_info "开始构建镜像（强制重新构建所有层）..."
 echo "=== Docker构建输出 ==="
-docker-compose build --no-cache --pull --force-rm
+if ! docker-compose build --no-cache --pull --force-rm; then
+    log_error "构建失败！请检查上面的错误信息"
+    exit 1
+fi
 echo "=== 构建完成 ==="
 
 log_success "镜像构建完成"
 
 # 验证镜像构建结果
 log_info "验证镜像构建结果..."
-docker images | grep mysql-binlog-analyzer
+if ! docker images | grep mysql-binlog-analyzer; then
+    log_error "未找到构建的镜像！构建可能失败"
+    echo "当前所有镜像:"
+    docker images
+    exit 1
+fi
 
 # 测试镜像启动
 log_info "测试镜像启动..."
