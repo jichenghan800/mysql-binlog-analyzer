@@ -1,5 +1,3 @@
-version: '3.8'
-
 # 默认启动内存存储模式
 services:
   # 默认服务 (内存存储)
@@ -20,20 +18,6 @@ services:
           memory: 16G
         reservations:
           memory: 2G
-  # 基础应用服务 (内存存储)
-  mysql-binlog-analyzer:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - USE_DATABASE=false
-    volumes:
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-    restart: unless-stopped
-    profiles:
-      - memory-only
     
   # 带数据库的应用服务
   mysql-binlog-analyzer-db:
