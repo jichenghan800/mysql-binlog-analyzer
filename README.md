@@ -14,19 +14,25 @@
 
 ## 快速开始
 
-### 安装依赖
+### 1. 克隆项目
+```bash
+git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
+cd mysql-binlog-analyzer
+```
+
+### 2. 安装依赖
 ```bash
 npm install
 ```
 
-### 启动服务
+### 3. 启动服务
 ```bash
 npm start
 # 或
 node server.js
 ```
 
-### 访问应用
+### 4. 访问应用
 - 本地访问: http://localhost:3000
 - 局域网访问: http://[your-ip]:3000
 
