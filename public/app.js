@@ -134,7 +134,9 @@ class BinlogAnalyzer {
         }
         
         // 隐藏上传区域，显示进度条
-        uploadSection.style.display = 'none';
+        if (uploadSection) {
+            uploadSection.style.display = 'none';
+        }
         progressContainer.classList.remove('d-none');
         progressBar.style.width = '0%';
         progressText.textContent = '正在上传文件...';
