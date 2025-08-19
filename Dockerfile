@@ -15,15 +15,12 @@ RUN npm ci --only=production
 # 复制应用代码
 COPY . .
 
-# 复制并设置启动脚本权限
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 # 创建必要目录
 RUN mkdir -p uploads logs
 
 # 暴露端口
 EXPOSE 3000
 
-# 使用自定义启动脚本
-CMD ["/usr/local/bin/docker-entrypoint.sh"]
+# 设置Node.js内存限制并启动应用
+ENV NODE_OPTIONS="--max-old-space-size=16384"
+CMD ["node", "server.js"]
