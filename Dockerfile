@@ -1,7 +1,10 @@
-FROM node:18-alpine
+FROM node:18-slim
 
-# 安装MySQL客户端工具
-RUN apk add --no-cache mysql-client mysql
+# 更新包列表并安装MySQL客户端工具
+RUN apt-get update && \
+    apt-get install -y mysql-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
