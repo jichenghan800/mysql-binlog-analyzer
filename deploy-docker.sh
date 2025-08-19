@@ -222,7 +222,7 @@ echo "您选择了: $choice"
 case $choice in
     1)
         log_info "启动内存存储模式..."
-        docker-compose --profile memory-only up -d
+        docker-compose up -d app
         SERVICE_NAME="app"
         ;;
     2)
@@ -232,7 +232,7 @@ case $choice in
         ;;
     *)
         log_error "无效选择，默认使用内存存储模式"
-        docker-compose --profile memory-only up -d
+        docker-compose up -d app
         SERVICE_NAME="app"
         ;;
 esac
@@ -270,9 +270,16 @@ echo ""
 echo "🎉 部署完成！"
 echo "=============="
 echo "📍 访问地址:"
-echo "  本地访问: http://localhost:5000"
-if [ ! -z "$SERVER_IP" ]; then
-    echo "  外网访问: http://$SERVER_IP:5000"
+if [ "$choice" = "1" ]; then
+    echo "  本地访问: http://localhost:5001"
+    if [ ! -z "$SERVER_IP" ]; then
+        echo "  外网访问: http://$SERVER_IP:5001"
+    fi
+else
+    echo "  本地访问: http://localhost:5000"
+    if [ ! -z "$SERVER_IP" ]; then
+        echo "  外网访问: http://$SERVER_IP:5000"
+    fi
 fi
 
 echo ""
@@ -301,7 +308,12 @@ log_info "步骤12: 最终健康检查..."
 
 sleep 3
 
-if curl -s http://localhost:5000 >/dev/null 2>&1; then
+CHECK_PORT=5000
+if [ "$choice" = "1" ]; then
+    CHECK_PORT=5001
+fi
+
+if curl -s http://localhost:$CHECK_PORT >/dev/null 2>&1; then
     log_success "✅ 服务运行正常，可以访问！"
 else
     log_warning "⚠️ 服务可能还在启动中，请稍等片刻后访问"
