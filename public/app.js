@@ -943,42 +943,43 @@ class BinlogAnalyzer {
             };
         }
 
-        // 提取SQL中的值（简单的正则匹配）
-        const extractValues = (sql) => {
-            const values = [];
-            // 匹配 = 后面的值
-            const matches = sql.match(/=\s*([^,\s)]+)/g);
+        // 提取SQL中的字段=值对
+        const extractFieldValues = (sql) => {
+            const fieldValues = new Map();
+            const matches = sql.match(/(\w+)\s*=\s*([^,\s)]+)/g);
             if (matches) {
                 matches.forEach(match => {
-                    const value = match.replace(/=\s*/, '').trim();
-                    values.push(value);
+                    const [field, value] = match.split('=').map(s => s.trim());
+                    fieldValues.set(field, value);
                 });
             }
-            return values;
+            return fieldValues;
         };
 
-        const originalValues = extractValues(originalSQL);
-        const reverseValues = extractValues(reverseSQL);
+        const originalFields = extractFieldValues(originalSQL);
+        const reverseFields = extractFieldValues(reverseSQL);
 
         let highlightedOriginal = originalSQL;
         let highlightedReverse = reverseSQL;
 
-        // 为不同的值添加高亮
-        originalValues.forEach((value, index) => {
-            if (reverseValues[index] && value !== reverseValues[index]) {
-                // 高亮原始SQL中的值（绿色背景）
-                const regex = new RegExp(`(=\\s*)(${this.escapeRegex(value)})`, 'g');
+        // 只高亮真正不同的值
+        originalFields.forEach((value, field) => {
+            const reverseValue = reverseFields.get(field);
+            if (reverseValue && value !== reverseValue) {
+                // 高亮原始SQL中的不同值（绿色背景）
+                const regex = new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)(${this.escapeRegex(value)})`, 'g');
                 highlightedOriginal = highlightedOriginal.replace(regex, 
-                    `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px;">$2</span>`);
+                    `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold;">$2</span>`);
             }
         });
 
-        reverseValues.forEach((value, index) => {
-            if (originalValues[index] && value !== originalValues[index]) {
-                // 高亮回滚SQL中的值（红色背景）
-                const regex = new RegExp(`(=\\s*)(${this.escapeRegex(value)})`, 'g');
+        reverseFields.forEach((value, field) => {
+            const originalValue = originalFields.get(field);
+            if (originalValue && value !== originalValue) {
+                // 高亮回滚SQL中的不同值（红色背景）
+                const regex = new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)(${this.escapeRegex(value)})`, 'g');
                 highlightedReverse = highlightedReverse.replace(regex, 
-                    `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px;">$2</span>`);
+                    `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold;">$2</span>`);
             }
         });
 
