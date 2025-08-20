@@ -122,19 +122,19 @@ class BinlogAnalyzer {
         const uploadSection = document.getElementById('uploadSection');
         
         // 创建或获取进度文本元素
-        let progressText = document.querySelector('#uploadProgress .progress-text');
+        let progressText = document.querySelector('.progress-text');
         if (!progressText) {
             progressText = document.createElement('div');
             progressText.className = 'progress-text text-center mt-3 mb-2';
-            progressContainer.appendChild(progressText);
+            document.querySelector('.card-body').appendChild(progressText);
         }
         
         // 创建或获取进度详情元素
-        let progressDetails = document.querySelector('#uploadProgress .progress-details');
+        let progressDetails = document.querySelector('.progress-details');
         if (!progressDetails) {
             progressDetails = document.createElement('div');
             progressDetails.className = 'progress-details text-center text-muted small mt-2';
-            progressContainer.appendChild(progressDetails);
+            document.querySelector('.card-body').appendChild(progressDetails);
         }
         
         // 隐藏上传区域，显示解析状态
@@ -176,7 +176,7 @@ class BinlogAnalyzer {
                     const data = JSON.parse(event.data);
                     console.log('收到进度更新:', data);
                     if (data.type !== 'connected') {
-                        this.updateProgress(data, progressBar, progressOverlay, progressText, progressDetails);
+                        this.updateProgress(data, null, null, progressText, progressDetails);
                     }
                 } catch (error) {
                     console.error('解析进度数据失败:', error);
@@ -189,13 +189,11 @@ class BinlogAnalyzer {
             
             // 初始上传进度模拟
             const uploadInterval = setInterval(() => {
-                if (!isUploadComplete) {
+                if (!isUploadComplete && progressDetails) {
                     uploadProgress += Math.random() * 5;
                     if (uploadProgress > 15) {
                         uploadProgress = 15;
                     }
-                    progressBar.style.width = uploadProgress + '%';
-                    progressOverlay.textContent = uploadProgress.toFixed(1) + '%';
                     progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
                 }
             }, 200);
