@@ -968,9 +968,36 @@ app.post('/filter-options', async (req, res) => {
     const { sessionId } = req.body;
     let options = { databases: [], tables: [] };
     
-    if (sessionId && dbManager.useDatabase) {
+    if (sessionId && dbManager && dbManager.useDatabase) {
       // 从数据库获取
-      options = await dbManager.getFilterOptions(sessionId);
+      try {
+        const [dbRows] = await dbManager.connection.execute(
+          'SELECT DISTINCT database_name FROM binlog_operations WHERE session_id = ? ORDER BY database_name',
+          [sessionId]
+        );
+        options.databases = dbRows.map(row => row.database_name);
+        
+        const [tableRows] = await dbManager.connection.execute(
+          'SELECT DISTINCT table_name FROM binlog_operations WHERE session_id = ? ORDER BY table_name',
+          [sessionId]
+        );
+        options.tables = tableRows.map(row => row.table_name);
+      } catch (dbError) {
+        console.error('数据库查询筛选选项失败:', dbError);
+        // 降级到内存查询
+        if (global.currentOperations) {
+          const databases = new Set();
+          const tables = new Set();
+          
+          global.currentOperations.forEach(op => {
+            databases.add(op.database);
+            tables.add(op.table);
+          });
+          
+          options.databases = Array.from(databases).sort();
+          options.tables = Array.from(tables).sort();
+        }
+      }
     } else if (global.currentOperations) {
       // 从内存获取
       const databases = new Set();
@@ -978,7 +1005,7 @@ app.post('/filter-options', async (req, res) => {
       
       global.currentOperations.forEach(op => {
         databases.add(op.database);
-        tables.add(`${op.database}.${op.table}`);
+        tables.add(op.table);
       });
       
       options.databases = Array.from(databases).sort();

@@ -408,7 +408,52 @@ class BinlogAnalyzer {
         }
     }
 
-    populateFilters() {
+    async populateFilters() {
+        try {
+            const response = await fetch('/filter-options', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sessionId: this.sessionId })
+            });
+            
+            const options = await response.json();
+            
+            const databaseFilter = document.getElementById('databaseFilter');
+            const tableFilter = document.getElementById('tableFilter');
+
+            // 清空现有选项
+            databaseFilter.innerHTML = '<option value="">全部</option>';
+            tableFilter.innerHTML = '<option value="">全部</option>';
+
+            // 添加数据库选项
+            if (options.databases) {
+                options.databases.forEach(db => {
+                    const option = document.createElement('option');
+                    option.value = db;
+                    option.textContent = db;
+                    databaseFilter.appendChild(option);
+                });
+            }
+
+            // 添加表选项
+            if (options.tables) {
+                options.tables.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table;
+                    option.textContent = table;
+                    tableFilter.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('获取筛选选项失败:', error);
+            // 降级到使用本地数据
+            this.populateFiltersFromLocal();
+        }
+    }
+    
+    populateFiltersFromLocal() {
         const databases = [...new Set(this.operations.map(op => op.database))];
         const tables = [...new Set(this.operations.map(op => op.table))];
 
