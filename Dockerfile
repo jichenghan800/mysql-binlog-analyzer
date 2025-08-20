@@ -1,9 +1,9 @@
                                                                                                                                    Dockerfile                                                                                                                                                   
 FROM node:18-slim
 
-# 安装MySQL客户端工具（使用Ubuntu官方源）
+# 安装MySQL客户端工具
 RUN apt-get update && \
-    apt-get install -y mysql-server-core-8.0 && \
+    apt-get install -y mysql-client-8.0 mysql-server-core-8.0 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     which mysqlbinlog && mysqlbinlog --version

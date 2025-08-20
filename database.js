@@ -39,7 +39,7 @@ class DatabaseManager {
                 server_id INT,
                 set_values JSON,
                 where_conditions JSON,
-                values JSON,
+                \`values\` JSON,
                 original_sql TEXT,
                 reverse_sql TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -61,7 +61,7 @@ class DatabaseManager {
             const insertSQL = `
                 INSERT INTO binlog_operations 
                 (session_id, type, database_name, table_name, timestamp, server_id, 
-                 set_values, where_conditions, values, original_sql, reverse_sql)
+                 set_values, where_conditions, \`values\`, original_sql, reverse_sql)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
