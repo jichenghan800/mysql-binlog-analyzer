@@ -66,7 +66,18 @@ class DatabaseManager {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
-            const batchSize = 1000;
+            // 自适应批次大小：根据操作数量和服务器配置调整
+            let batchSize = 1000; // 默认批次
+            if (operations.length > 100000) {
+                batchSize = 10000; // 大数据集使用更大批次
+            } else if (operations.length > 50000) {
+                batchSize = 5000; // 中等数据集
+            } else if (operations.length > 10000) {
+                batchSize = 2000; // 小数据集
+            }
+            
+            console.log(`使用批次大小: ${batchSize}, 总操作数: ${operations.length}`);
+            
             for (let i = 0; i < operations.length; i += batchSize) {
                 const batch = operations.slice(i, i + batchSize);
                 const values = batch.map(op => [

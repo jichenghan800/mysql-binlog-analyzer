@@ -126,6 +126,9 @@ class BinlogAnalyzer {
         const progressContainer = document.getElementById('uploadProgress');
         const uploadSection = document.getElementById('uploadSection');
         
+        // 获取进度条元素
+        const progressOverlay = document.getElementById('progressOverlay');
+        
         // 创建或获取进度文本元素
         let progressText = document.querySelector('#uploadProgress .progress-text');
         if (!progressText) {
@@ -148,7 +151,7 @@ class BinlogAnalyzer {
         }
         progressContainer.classList.remove('d-none');
         progressBar.style.width = '0%';
-        progressBar.textContent = '0%';
+        progressOverlay.textContent = '0%';
         progressText.textContent = '正在上传文件...';
         progressDetails.textContent = '初始化中...';
 
@@ -158,13 +161,13 @@ class BinlogAnalyzer {
             
             // 初始上传进度模拟
             const uploadInterval = setInterval(() => {
-                uploadProgress += Math.random() * 10;
-                if (uploadProgress > 30) {
-                    uploadProgress = 30;
+                uploadProgress += Math.random() * 8;
+                if (uploadProgress > 20) {
+                    uploadProgress = 20;
                     clearInterval(uploadInterval);
                 }
                 progressBar.style.width = uploadProgress + '%';
-                progressBar.textContent = uploadProgress.toFixed(1) + '%';
+                progressOverlay.textContent = uploadProgress.toFixed(1) + '%';
                 progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
             }, 200);
 
@@ -188,7 +191,7 @@ class BinlogAnalyzer {
                     eventSource.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
-                            this.updateProgress(data, progressBar, progressText, progressDetails);
+                            this.updateProgress(data, progressBar, progressOverlay, progressText, progressDetails);
                         } catch (error) {
                             console.error('解析进度数据失败:', error);
                         }
@@ -203,7 +206,7 @@ class BinlogAnalyzer {
                 // 显示最终结果
                 setTimeout(() => {
                     progressBar.style.width = '100%';
-                    progressBar.textContent = '100%';
+                    progressOverlay.textContent = '100%';
                     progressText.textContent = '解析完成！';
                     progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
                     
@@ -223,7 +226,7 @@ class BinlogAnalyzer {
                 this.showNotification(message, 'success');
             } else {
                 progressBar.style.width = '100%';
-                progressBar.textContent = '失败';
+                progressOverlay.textContent = '失败';
                 progressText.textContent = '解析失败';
                 progressDetails.textContent = result.error;
                 this.showNotification('解析失败: ' + result.error, 'error');
@@ -1184,39 +1187,48 @@ class BinlogAnalyzer {
         });
     }
 
-    updateProgress(data, progressBar, progressText, progressDetails) {
+    updateProgress(data, progressBar, progressOverlay, progressText, progressDetails) {
+        let overallProgress = 0;
+        
         switch (data.type) {
             case 'parsing':
-                progressBar.style.width = (30 + data.progress * 0.4) + '%'; // 30-70%
-                progressBar.textContent = (30 + data.progress * 0.4).toFixed(1) + '%';
+                // 解析阶段占20-80%
+                overallProgress = 20 + (data.progress * 0.6);
+                progressBar.style.width = overallProgress + '%';
+                progressOverlay.textContent = overallProgress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'parsed':
-                progressBar.style.width = '70%';
-                progressBar.textContent = '70%';
+                overallProgress = 80;
+                progressBar.style.width = overallProgress + '%';
+                progressOverlay.textContent = overallProgress + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'extracting':
-                progressBar.style.width = '75%';
-                progressBar.textContent = '75%';
+                overallProgress = 85;
+                progressBar.style.width = overallProgress + '%';
+                progressOverlay.textContent = overallProgress + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'saving':
-                progressBar.style.width = (75 + data.progress * 0.2) + '%'; // 75-95%
-                progressBar.textContent = (75 + data.progress * 0.2).toFixed(1) + '%';
+                // 保存阶段占85-95%
+                overallProgress = 85 + (data.progress * 0.1);
+                progressBar.style.width = overallProgress + '%';
+                progressOverlay.textContent = overallProgress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'complete':
-                progressBar.style.width = '95%';
-                progressBar.textContent = '95%';
+                overallProgress = 95;
+                progressBar.style.width = overallProgress + '%';
+                progressOverlay.textContent = overallProgress + '%';
                 progressText.textContent = data.message;
                 progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
                 break;
