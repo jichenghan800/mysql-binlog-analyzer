@@ -607,6 +607,17 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       console.log('垃圾回收后内存使用:', afterGCMemory);
     }
 
+    // 解析完成后立即清理文件
+    if (filePath && fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log('已清理临时文件:', filePath);
+        filePath = null; // 标记已删除
+      } catch (cleanupError) {
+        console.error('清理临时文件失败:', cleanupError);
+      }
+    }
+
     res.json({
       success: true,
       operations: operations.slice(0, 50), // 只返回前50条作为预览
@@ -628,18 +639,14 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       error: '解析binlog文件失败: ' + error.message 
     });
   } finally {
-    // 延迟清理上传的文件，避免并发访问冲突
+    // 确保清理上传的文件（如果还没有删除）
     if (filePath && fs.existsSync(filePath)) {
-      setTimeout(() => {
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log('已清理临时文件:', filePath);
-          }
-        } catch (cleanupError) {
-          console.error('清理临时文件失败:', cleanupError);
-        }
-      }, 5000); // 5秒后删除
+      try {
+        fs.unlinkSync(filePath);
+        console.log('已清理临时文件:', filePath);
+      } catch (cleanupError) {
+        console.error('清理临时文件失败:', cleanupError);
+      }
     }
   }
 });
