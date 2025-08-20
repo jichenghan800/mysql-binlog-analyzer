@@ -39,7 +39,8 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
     profiles:
       - with-database
@@ -65,6 +66,12 @@ services:
     restart: unless-stopped
     profiles:
       - with-database
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "binlog_user", "-pbinlog_pass"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+      start_period: 40s
 
 volumes:
   mysql_data:
