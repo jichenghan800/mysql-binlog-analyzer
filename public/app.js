@@ -1345,10 +1345,10 @@ class BinlogAnalyzer {
         
         switch (data.type) {
             case 'parsing':
-                // 解析阶段：占总进度的50%
+                // 解析阶段：使用日志流中的实际进度值，映射到50%
                 const parseProgress = Math.min(data.progress * 0.5, 50);
                 parseProgressBar.style.width = parseProgress + '%';
-                progressOverlay.textContent = parseProgress.toFixed(1) + '%';
+                progressOverlay.textContent = data.progress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
@@ -1357,26 +1357,25 @@ class BinlogAnalyzer {
                 // 解析完成：解析进度条达到50%
                 parseProgressBar.style.width = '50%';
                 parseProgressBar.classList.remove('progress-bar-animated');
-                progressOverlay.textContent = '50%';
+                progressOverlay.textContent = '100%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'extracting':
-                // 提取阶段保持50%
+                // 提取阶段保持100%
                 parseProgressBar.style.width = '50%';
-                progressOverlay.textContent = '50%';
+                progressOverlay.textContent = '100%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'saving':
-                // 保存阶段：占后50%
+                // 保存阶段：使用日志流中的实际进度值，映射到后50%
                 const saveProgress = Math.min(data.progress * 0.5, 50);
                 saveProgressBar.style.width = saveProgress + '%';
                 saveProgressBar.classList.add('progress-bar-animated');
-                const totalProgress = 50 + saveProgress;
-                progressOverlay.textContent = totalProgress.toFixed(1) + '%';
+                progressOverlay.textContent = data.progress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
@@ -1467,13 +1466,17 @@ class BinlogAnalyzer {
     }
     
     addReuploadButton() {
-        const titleRow = document.querySelector('.row .col-12 .d-flex');
-        if (titleRow && !document.getElementById('reuploadBtn')) {
+        const titleContainer = document.querySelector('.row .col-12');
+        if (titleContainer && !document.getElementById('reuploadBtn')) {
+            // 创建居中的按钮容器
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'text-center my-3';
+            
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
-            reuploadBtn.className = 'btn btn-primary';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1rem; font-weight: 600; padding: 8px 20px; border-radius: 6px;';
-            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
+            reuploadBtn.className = 'btn btn-primary btn-lg';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1.1rem; font-weight: 600; padding: 10px 25px; border-radius: 8px;';
+            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传文件';
             reuploadBtn.onmouseover = () => {
                 reuploadBtn.style.transform = 'translateY(-2px)';
                 reuploadBtn.style.boxShadow = '0 4px 12px rgba(0,123,255,0.4)';
@@ -1487,12 +1490,13 @@ class BinlogAnalyzer {
                 window.location.reload();
             };
             
-            // 插入到标题和帮助按钮之间
-            const helpButton = titleRow.querySelector('a[href="help.html"]');
-            if (helpButton) {
-                titleRow.insertBefore(reuploadBtn, helpButton);
+            buttonContainer.appendChild(reuploadBtn);
+            // 插入到标题下方居中显示
+            const titleRow = titleContainer.querySelector('.d-flex');
+            if (titleRow) {
+                titleRow.insertAdjacentElement('afterend', buttonContainer);
             } else {
-                titleRow.appendChild(reuploadBtn);
+                titleContainer.appendChild(buttonContainer);
             }
         }
     }
