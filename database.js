@@ -247,8 +247,8 @@ class DatabaseManager {
             const sortColumn = {
                 'timestamp': 'timestamp',
                 'type': 'type',
-                'database': 'database_name',
-                'table': 'table_name'
+                'database_name': 'database_name',
+                'table_name': 'table_name'
             }[sortBy] || 'timestamp';
             
             const orderClause = `ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}`;

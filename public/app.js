@@ -797,11 +797,11 @@ class BinlogAnalyzer {
         
         // 更新计数显示
         filteredCount.innerHTML = `
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex justify-content-between align-items-center w-100">
                 <span>${totalItems.toLocaleString()} 条记录</span>
                 <div class="d-flex align-items-center gap-2">
-                    <label class="form-label mb-0 small">每页:</label>
-                    <select class="form-select form-select-sm" style="width: 80px;" onchange="analyzer.changePageSize(this.value)">
+                    <small class="text-muted">每页:</small>
+                    <select class="form-select form-select-sm text-muted" style="width: 70px; font-size: 0.8em; border-color: #e9ecef; background-color: #f8f9fa;" onchange="analyzer.changePageSize(this.value)">
                         <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
                         <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
                         <option value="200" ${this.pageSize === 200 ? 'selected' : ''}>200</option>
@@ -809,7 +809,7 @@ class BinlogAnalyzer {
                         <option value="1000" ${this.pageSize === 1000 ? 'selected' : ''}>1000</option>
                     </select>
                 </div>
-                ${totalPages > 1 ? `<span class="small text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</span>` : ''}
+                ${totalPages > 1 ? `<small class="text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</small>` : ''}
             </div>
         `;
 
