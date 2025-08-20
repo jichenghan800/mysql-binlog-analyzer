@@ -1459,7 +1459,7 @@ class BinlogAnalyzer {
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
             reuploadBtn.className = 'btn btn-primary';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1rem; margin-right: 15px;';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1.2rem; font-weight: 600; margin-right: 15px; padding: 10px 20px;';
             reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
             reuploadBtn.onmouseover = () => {
                 reuploadBtn.style.transform = 'translateY(-2px)';
@@ -1475,6 +1475,8 @@ class BinlogAnalyzer {
                     fileInput.value = '';
                     const handleFileChange = (e) => {
                         if (e.target.files.length > 0) {
+                            // 重新上传时需要重置界面状态并显示进度条
+                            this.resetUploadState();
                             this.uploadFile(e.target.files[0]);
                         }
                         fileInput.removeEventListener('change', handleFileChange);
@@ -1528,6 +1530,46 @@ class BinlogAnalyzer {
                 uploadSection.style.transform = 'translateY(0)';
                 uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 50);
+        }
+    }
+    
+    resetUploadState() {
+        // 重置上传状态，显示上传区域和进度条
+        const uploadArea = document.getElementById('uploadArea');
+        const doraemonIcon = document.getElementById('doraemonIcon');
+        const progressContainer = document.getElementById('uploadProgress');
+        const progressBar = document.querySelector('#uploadProgress .progress-bar');
+        const progressOverlay = document.getElementById('progressOverlay');
+        
+        // 显示上传区域但隐藏文件选择部分
+        if (uploadArea) {
+            uploadArea.style.display = 'none';
+        }
+        
+        // 显示机器猫图标
+        if (doraemonIcon) {
+            doraemonIcon.classList.remove('d-none');
+        }
+        
+        // 重置并显示进度条
+        if (progressContainer) {
+            progressContainer.classList.remove('d-none');
+        }
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        if (progressOverlay) {
+            progressOverlay.textContent = '0%';
+        }
+        
+        // 清理进度文本
+        const progressText = document.querySelector('#uploadProgress .progress-text');
+        const progressDetails = document.querySelector('#uploadProgress .progress-details');
+        if (progressText) {
+            progressText.textContent = '正在上传文件...';
+        }
+        if (progressDetails) {
+            progressDetails.textContent = '初始化中...';
         }
     }
     
