@@ -119,11 +119,12 @@ class BinlogAnalyzer {
         const formData = new FormData();
         formData.append('binlogFile', file);
 
-        const progressBar = document.querySelector('#uploadProgress .progress-bar');
         const progressContainer = document.getElementById('uploadProgress');
         const uploadSection = document.getElementById('uploadSection');
         
-        // 获取进度条元素
+        // 获取两段式进度条元素
+        const parseProgressBar = document.getElementById('parseProgressBar');
+        const saveProgressBar = document.getElementById('saveProgressBar');
         const progressOverlay = document.getElementById('progressOverlay');
         
         // 创建或获取进度文本元素
@@ -153,7 +154,8 @@ class BinlogAnalyzer {
             doraemonIcon.classList.remove('d-none');
         }
         progressContainer.classList.remove('d-none');
-        progressBar.style.width = '0%';
+        parseProgressBar.style.width = '0%';
+        saveProgressBar.style.width = '0%';
         progressOverlay.textContent = '0%';
         progressText.textContent = '正在上传文件...';
         progressDetails.textContent = '初始化中...';
@@ -218,8 +220,8 @@ class BinlogAnalyzer {
             clearInterval(uploadInterval);
             
             // 显示上传完成，开始解析
-            progressBar.style.width = '20%';
-            progressOverlay.textContent = '20%';
+            parseProgressBar.style.width = '10%';
+            progressOverlay.textContent = '10%';
             progressText.textContent = '上传完成，开始解析...';
             progressDetails.textContent = '正在解析binlog文件...';
             
@@ -232,13 +234,13 @@ class BinlogAnalyzer {
                         // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                        progressBar.style.width = '100%';
+                        parseProgressBar.style.width = '50%';
+                        saveProgressBar.style.width = '50%';
                         progressOverlay.textContent = '100%';
                         progressText.textContent = '解析完成！';
                         progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
                         eventSource.close();
                         
-                        // 超时后也隐藏进度条
                         setTimeout(() => {
                             const progressContainer = document.getElementById('uploadProgress');
                             const uploadSection = document.getElementById('uploadSection');
@@ -266,7 +268,8 @@ class BinlogAnalyzer {
                 
                 this.showNotification(message, 'success');
             } else {
-                progressBar.style.width = '100%';
+                parseProgressBar.style.width = '50%';
+                parseProgressBar.classList.add('bg-danger');
                 progressOverlay.textContent = '失败';
                 progressText.textContent = '解析失败';
                 progressDetails.textContent = result.error;
@@ -1337,46 +1340,56 @@ class BinlogAnalyzer {
     }
 
     updateProgress(data, progressBar, progressOverlay, progressText, progressDetails) {
-        // 直接使用后端推送的实际进度值
+        const parseProgressBar = document.getElementById('parseProgressBar');
+        const saveProgressBar = document.getElementById('saveProgressBar');
+        
         switch (data.type) {
             case 'parsing':
-                // 使用后端计算的实际解析进度
-                progressBar.style.width = data.progress + '%';
-                progressOverlay.textContent = data.progress.toFixed(1) + '%';
+                // 解析阶段：占总进度的50%
+                const parseProgress = Math.min(data.progress * 0.5, 50);
+                parseProgressBar.style.width = parseProgress + '%';
+                progressOverlay.textContent = parseProgress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'parsed':
-                progressBar.style.width = '100%';
-                progressOverlay.textContent = '100%';
+                // 解析完成：解析进度条达到50%
+                parseProgressBar.style.width = '50%';
+                parseProgressBar.classList.remove('progress-bar-animated');
+                progressOverlay.textContent = '50%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'extracting':
-                // 提取阶段保持100%
-                progressBar.style.width = '100%';
-                progressOverlay.textContent = '100%';
+                // 提取阶段保持50%
+                parseProgressBar.style.width = '50%';
+                progressOverlay.textContent = '50%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'saving':
-                // 使用后端计算的实际保存进度
-                progressBar.style.width = data.progress + '%';
-                progressOverlay.textContent = data.progress.toFixed(1) + '%';
+                // 保存阶段：占后50%
+                const saveProgress = Math.min(data.progress * 0.5, 50);
+                saveProgressBar.style.width = saveProgress + '%';
+                saveProgressBar.classList.add('progress-bar-animated');
+                const totalProgress = 50 + saveProgress;
+                progressOverlay.textContent = totalProgress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'complete':
-                progressBar.style.width = '100%';
+                // 完成：两个进度条都达到50%，总计100%
+                parseProgressBar.style.width = '50%';
+                saveProgressBar.style.width = '50%';
+                saveProgressBar.classList.remove('progress-bar-animated');
                 progressOverlay.textContent = '100%';
                 progressText.textContent = data.message;
                 progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
                 
-                // 完成后自动隐藏进度条
                 setTimeout(() => {
                     const progressContainer = document.getElementById('uploadProgress');
                     const uploadSection = document.getElementById('uploadSection');

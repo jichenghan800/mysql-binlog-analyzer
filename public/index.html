@@ -181,8 +181,13 @@
                             <div style="font-size: 3rem; color: #0066cc; display: none;">🤖</div>
                             <small class="text-muted d-block mt-2">正在努力解析中...</small>
                         </div>
-                        <div class="progress mt-3 d-none" id="uploadProgress">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+                        <div class="progress mt-3 d-none" id="uploadProgress" style="height: 30px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%" id="parseProgressBar">
+                                <span class="progress-text">解析中...</span>
+                            </div>
+                            <div class="progress-bar progress-bar-striped bg-success" role="progressbar" style="width: 0%" id="saveProgressBar">
+                                <span class="progress-text">保存中...</span>
+                            </div>
                             <div class="progress-overlay" id="progressOverlay">0%</div>
                         </div>
                     </div>
