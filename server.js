@@ -442,7 +442,29 @@ function generateInsertSQL(tableName, values) {
 function generateUpdateSQL(tableName, setValues, whereConditions) {
   if (!setValues || setValues.length === 0) return '';
   
-  const setPart = setValues.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(', ');
+  // 找出实际发生变化的字段
+  const changedFields = [];
+  const whereMap = new Map();
+  
+  // 创建WHERE条件的映射
+  if (whereConditions) {
+    whereConditions.forEach(w => {
+      whereMap.set(w.column, w.value);
+    });
+  }
+  
+  // 只包含实际变化的字段
+  setValues.forEach(s => {
+    const oldValue = whereMap.get(s.column);
+    if (oldValue !== s.value) {
+      changedFields.push(s);
+    }
+  });
+  
+  // 如果没有变化的字段，使用所有SET字段
+  const fieldsToUpdate = changedFields.length > 0 ? changedFields : setValues;
+  
+  const setPart = fieldsToUpdate.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(', ');
   const wherePart = whereConditions && whereConditions.length > 0 
     ? whereConditions.map(w => `col_${w.column} = ${formatValue(w.value)}`).join(' AND ')
     : '1=1';
@@ -454,8 +476,32 @@ function generateUpdateSQL(tableName, setValues, whereConditions) {
 function generateReverseUpdateSQL(tableName, setValues, whereConditions) {
   if (!whereConditions || whereConditions.length === 0 || !setValues || setValues.length === 0) return '';
   
-  // 回滚UPDATE：用WHERE条件的值作为SET，用SET的值作为WHERE
-  const setPart = whereConditions.map(w => `col_${w.column} = ${formatValue(w.value)}`).join(', ');
+  // 找出实际发生变化的字段
+  const changedFields = [];
+  const whereMap = new Map();
+  const setMap = new Map();
+  
+  // 创建映射
+  whereConditions.forEach(w => {
+    whereMap.set(w.column, w.value);
+  });
+  
+  setValues.forEach(s => {
+    setMap.set(s.column, s.value);
+  });
+  
+  // 找出变化的字段，回滚时SET旧值
+  setValues.forEach(s => {
+    const oldValue = whereMap.get(s.column);
+    if (oldValue !== s.value) {
+      changedFields.push({ column: s.column, value: oldValue });
+    }
+  });
+  
+  // 如果没有找到变化的字段，使用WHERE条件作为SET
+  const fieldsToRevert = changedFields.length > 0 ? changedFields : whereConditions;
+  
+  const setPart = fieldsToRevert.map(f => `col_${f.column} = ${formatValue(f.value)}`).join(', ');
   const wherePart = setValues.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(' AND ');
   
   return `UPDATE ${tableName} SET ${setPart} WHERE ${wherePart};`;
