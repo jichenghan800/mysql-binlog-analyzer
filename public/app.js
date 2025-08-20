@@ -47,26 +47,13 @@ class BinlogAnalyzer {
             defaultHour: 0,
             defaultMinute: 0,
             onClose: () => {
-                // 延迟执行筛选，确保值已更新
-                setTimeout(() => this.applyFilters(), 100);
+                if (this.timeFilterEnabled) {
+                    setTimeout(() => this.applyFilters(), 100);
+                }
             },
             onChange: () => {
-                // 延迟执行筛选，确保值已更新
-                setTimeout(() => this.applyFilters(), 100);
-            },
-            onOpen: (selectedDates, dateStr, instance) => {
-                // 打开时设置为binlog时间范围
-                if (this.operations.length > 0 && selectedDates.length === 0) {
-                    const timestamps = this.operations
-                        .map(op => this.parseTimestamp(op.timestamp))
-                        .filter(t => t !== null)
-                        .sort((a, b) => a - b);
-                    
-                    if (timestamps.length > 0) {
-                        const isStartPicker = instance.element.id === 'startTime';
-                        const defaultTime = isStartPicker ? timestamps[0] : timestamps[timestamps.length - 1];
-                        instance.setDate(defaultTime, false); // false = 不触发onChange
-                    }
+                if (this.timeFilterEnabled) {
+                    setTimeout(() => this.applyFilters(), 100);
                 }
             }
         };
@@ -76,11 +63,15 @@ class BinlogAnalyzer {
         
         // 添加手动输入监听
         document.getElementById('startTime').addEventListener('blur', () => {
-            setTimeout(() => this.applyFilters(), 100);
+            if (this.timeFilterEnabled) {
+                setTimeout(() => this.applyFilters(), 100);
+            }
         });
         
         document.getElementById('endTime').addEventListener('blur', () => {
-            setTimeout(() => this.applyFilters(), 100);
+            if (this.timeFilterEnabled) {
+                setTimeout(() => this.applyFilters(), 100);
+            }
         });
     }
 
@@ -314,18 +305,22 @@ class BinlogAnalyzer {
             if (this.startTimePicker) {
                 this.startTimePicker.set('minDate', this.minTimestamp);
                 this.startTimePicker.set('maxDate', this.maxTimestamp);
-                this.startTimePicker.setDate(this.minTimestamp, false); // 设置为最小时间
+                this.startTimePicker.setDate(this.minTimestamp, false);
             }
             
             if (this.endTimePicker) {
                 this.endTimePicker.set('minDate', this.minTimestamp);
                 this.endTimePicker.set('maxDate', this.maxTimestamp);
-                this.endTimePicker.setDate(this.maxTimestamp, false); // 设置为最大时间
+                this.endTimePicker.setDate(this.maxTimestamp, false);
             }
             
-            // 更新placeholder
+            // 更新placeholder显示时间范围
             document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(this.minTimestamp)}`;
             document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(this.maxTimestamp)}`;
+            
+            // 初始化时禁用时间控件
+            document.getElementById('startTime').disabled = true;
+            document.getElementById('endTime').disabled = true;
         }
     }
 
@@ -519,15 +514,21 @@ class BinlogAnalyzer {
     toggleTimeFilter() {
         this.timeFilterEnabled = !this.timeFilterEnabled;
         const button = document.getElementById('timeFilterToggle');
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
         
         if (this.timeFilterEnabled) {
-            button.className = 'btn btn-primary';
-            button.innerHTML = '<i class="fas fa-clock"></i> 禁用时间筛选';
-            this.showNotification('时间筛选已启用', 'success');
+            button.className = 'btn btn-success';
+            button.innerHTML = '<i class="fas fa-check-circle"></i> 时间筛选已启用';
+            startTimeInput.disabled = false;
+            endTimeInput.disabled = false;
+            this.showNotification('时间筛选已启用，当前时间范围将生效', 'success');
         } else {
-            button.className = 'btn btn-outline-primary';
+            button.className = 'btn btn-outline-secondary';
             button.innerHTML = '<i class="fas fa-clock"></i> 启用时间筛选';
-            this.showNotification('时间筛选已禁用', 'success');
+            startTimeInput.disabled = true;
+            endTimeInput.disabled = true;
+            this.showNotification('时间筛选已禁用，显示全部时间范围', 'success');
         }
         
         this.applyFilters();
