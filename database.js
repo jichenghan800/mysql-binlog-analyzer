@@ -206,7 +206,10 @@ class DatabaseManager {
 
             if (filters.startTime) {
                 // 将本地时间转换为UTC时间进行查询
-                const startTimeUTC = new Date(filters.startTime).toISOString().slice(0, 19).replace('T', ' ');
+                // 假设输入是中国时间(UTC+8)，需要减去8小时
+                const localDate = new Date(filters.startTime);
+                const utcDate = new Date(localDate.getTime() - 8 * 60 * 60 * 1000);
+                const startTimeUTC = utcDate.toISOString().slice(0, 19).replace('T', ' ');
                 whereClause += ' AND timestamp >= ?';
                 params.push(startTimeUTC);
                 console.log('添加开始时间筛选:', filters.startTime, '-> UTC:', startTimeUTC);
@@ -214,7 +217,10 @@ class DatabaseManager {
 
             if (filters.endTime) {
                 // 将本地时间转换为UTC时间进行查询
-                const endTimeUTC = new Date(filters.endTime).toISOString().slice(0, 19).replace('T', ' ');
+                // 假设输入是中国时间(UTC+8)，需要减去8小时
+                const localDate = new Date(filters.endTime);
+                const utcDate = new Date(localDate.getTime() - 8 * 60 * 60 * 1000);
+                const endTimeUTC = utcDate.toISOString().slice(0, 19).replace('T', ' ');
                 whereClause += ' AND timestamp <= ?';
                 params.push(endTimeUTC);
                 console.log('添加结束时间筛选:', filters.endTime, '-> UTC:', endTimeUTC);
