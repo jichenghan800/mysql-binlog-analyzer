@@ -216,6 +216,15 @@ class DatabaseManager {
                 console.log('添加结束时间筛选:', filters.endTime);
             }
             
+            // 检查时间范围内的数据量
+            if (filters.startTime && filters.endTime) {
+                const [rangeRows] = await this.connection.execute(
+                    'SELECT MIN(timestamp) as min_time, MAX(timestamp) as max_time, COUNT(*) as count FROM binlog_operations WHERE session_id = ?',
+                    [sessionId]
+                );
+                console.log('数据库时间范围:', rangeRows[0]);
+            }
+            
             console.log('数据库查询SQL:', `SELECT COUNT(*) as total FROM binlog_operations ${whereClause}`);
             console.log('查询参数:', params);
 
@@ -242,6 +251,16 @@ class DatabaseManager {
             const dataSQL = `SELECT * FROM binlog_operations ${whereClause} ${orderClause} ${limitClause}`;
             console.log('数据查询SQL:', dataSQL);
             const [rows] = await this.connection.execute(dataSQL, params);
+            
+            // 检查数据库中实际的时间格式
+            if (rows.length === 0 && (filters.startTime || filters.endTime)) {
+                console.log('时间筛选结果为空，检查数据库中的时间格式...');
+                const [sampleRows] = await this.connection.execute(
+                    'SELECT timestamp FROM binlog_operations WHERE session_id = ? LIMIT 5',
+                    [sessionId]
+                );
+                console.log('数据库中的时间样本:', sampleRows.map(r => r.timestamp));
+            }
             
             const operations = rows.map(row => {
                 // 安全解析 JSON 字段

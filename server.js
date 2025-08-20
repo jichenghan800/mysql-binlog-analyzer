@@ -791,8 +791,11 @@ app.post('/operations/query', async (req, res) => {
 
     let operations = [];
     
+    console.log('查询参数:', { sessionId, useDatabase: dbManager.useDatabase, hasFilters: Object.keys(filters).length > 0 });
+    
     // 从数据库或内存获取数据
-    if (sessionId && dbManager.useDatabase) {
+    if (sessionId && dbManager && dbManager.useDatabase) {
+      console.log('使用数据库查询');
       // 从数据库查询
       operations = await dbManager.getOperations(sessionId, {
         page,
@@ -803,9 +806,11 @@ app.post('/operations/query', async (req, res) => {
       });
       
       if (!operations) {
+        console.error('数据库查询失败');
         return res.status(500).json({ error: '从数据库获取数据失败' });
       }
     } else {
+      console.log('使用内存查询');
       // 从内存查询（需要先存储在全局变量中）
       if (!global.currentOperations) {
         return res.status(400).json({ error: '没有可用的操作数据' });
