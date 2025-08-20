@@ -182,18 +182,33 @@ class DatabaseManager {
             const dataSQL = `SELECT * FROM binlog_operations ${whereClause} ${orderClause} ${limitClause}`;
             const [rows] = await this.connection.execute(dataSQL, params);
             
-            const operations = rows.map(row => ({
-                type: row.type,
-                database: row.database_name,
-                table: row.table_name,
-                timestamp: row.timestamp,
-                serverId: row.server_id,
-                setValues: JSON.parse(row.set_values || '[]'),
-                whereConditions: JSON.parse(row.where_conditions || '[]'),
-                values: JSON.parse(row.operation_values || '[]'),
-                originalSQL: row.original_sql,
-                reverseSQL: row.reverse_sql
-            }));
+            const operations = rows.map(row => {
+                // 安全解析 JSON 字段
+                const parseJsonSafely = (jsonStr, defaultValue = []) => {
+                    if (!jsonStr) return defaultValue;
+                    try {
+                        // 如果已经是对象，直接返回
+                        if (typeof jsonStr === 'object') return jsonStr;
+                        return JSON.parse(jsonStr);
+                    } catch (error) {
+                        console.error('JSON 解析错误:', error, '原始数据:', jsonStr);
+                        return defaultValue;
+                    }
+                };
+                
+                return {
+                    type: row.type,
+                    database: row.database_name,
+                    table: row.table_name,
+                    timestamp: row.timestamp,
+                    serverId: row.server_id,
+                    setValues: parseJsonSafely(row.set_values, []),
+                    whereConditions: parseJsonSafely(row.where_conditions, []),
+                    values: parseJsonSafely(row.operation_values, []),
+                    originalSQL: row.original_sql,
+                    reverseSQL: row.reverse_sql
+                };
+            });
 
             return {
                 data: operations,

@@ -159,6 +159,33 @@ class BinlogAnalyzer {
             let eventSource = null;
             let uploadProgress = 0;
             
+            // 生成临时会话 ID 用于 SSE 连接
+            const tempSessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+            
+            // 先建立 SSE 连接
+            console.log('建立 SSE 连接:', tempSessionId);
+            eventSource = new EventSource(`/progress/${tempSessionId}`);
+            
+            eventSource.onopen = () => {
+                console.log('SSE 连接已建立');
+            };
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('收到进度更新:', data);
+                    if (data.type !== 'connected') {
+                        this.updateProgress(data, progressBar, progressOverlay, progressText, progressDetails);
+                    }
+                } catch (error) {
+                    console.error('解析进度数据失败:', error);
+                }
+            };
+            
+            eventSource.onerror = (error) => {
+                console.error('SSE 连接错误:', error);
+            };
+            
             // 初始上传进度模拟
             const uploadInterval = setInterval(() => {
                 uploadProgress += Math.random() * 8;
@@ -170,6 +197,9 @@ class BinlogAnalyzer {
                 progressOverlay.textContent = uploadProgress.toFixed(1) + '%';
                 progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
             }, 200);
+            
+            // 在 formData 中添加 progressSessionId
+            formData.append('progressSessionId', tempSessionId);
 
             const startTime = Date.now();
             const response = await fetch('/upload', {
@@ -184,34 +214,6 @@ class BinlogAnalyzer {
             const duration = ((endTime - startTime) / 1000).toFixed(1);
 
             if (result.success) {
-                // 建立 SSE 连接接收实时进度
-                if (result.progressSessionId) {
-                    console.log('建立 SSE 连接:', result.progressSessionId);
-                    eventSource = new EventSource(`/progress/${result.progressSessionId}`);
-                    
-                    eventSource.onopen = () => {
-                        console.log('SSE 连接已建立');
-                    };
-                    
-                    eventSource.onmessage = (event) => {
-                        try {
-                            const data = JSON.parse(event.data);
-                            console.log('收到进度更新:', data);
-                            this.updateProgress(data, progressBar, progressOverlay, progressText, progressDetails);
-                        } catch (error) {
-                            console.error('解析进度数据失败:', error);
-                        }
-                    };
-                    
-                    eventSource.onerror = (error) => {
-                        console.error('SSE 连接错误:', error);
-                        if (eventSource.readyState === EventSource.CLOSED) {
-                            console.log('SSE 连接已关闭');
-                        }
-                    };
-                } else {
-                    console.warn('未获取到 progressSessionId');
-                }
                 
                 // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
@@ -254,6 +256,11 @@ class BinlogAnalyzer {
             
             this.showNotification(errorMessage, 'error');
         } finally {
+            // 关闭 SSE 连接
+            if (eventSource) {
+                eventSource.close();
+            }
+            
             setTimeout(() => {
                 progressContainer.classList.add('d-none');
                 if (uploadSection) {

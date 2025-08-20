@@ -644,8 +644,8 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     console.log('初始内存使用:', initialMemory);
 
     // 解析binlog
-    // 生成会话ID用于进度跟踪
-    const progressSessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    // 使用前端传递的 progressSessionId，或生成新的
+    const progressSessionId = req.body.progressSessionId || (Date.now().toString() + Math.random().toString(36).substr(2, 9));
     
     console.log('开始解析binlog...');
     const binlogOutput = await parseBinlog(filePath, progressSessionId);
@@ -710,6 +710,19 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       memoryUsage: finalMemory
     });
     
+    // 延迟关闭 SSE 连接
+    setTimeout(() => {
+      const connection = activeConnections.get(progressSessionId);
+      if (connection) {
+        try {
+          connection.end();
+        } catch (error) {
+          console.error('关闭 SSE 连接失败:', error);
+        }
+        activeConnections.delete(progressSessionId);
+      }
+    }, 2000);
+    
     res.json({
       success: true,
       operations: operations.slice(0, 50), // 只返回前50条作为预览
@@ -768,6 +781,10 @@ app.post('/operations/query', async (req, res) => {
         sortOrder,
         filters
       });
+      
+      if (!operations) {
+        return res.status(500).json({ error: '从数据库获取数据失败' });
+      }
     } else {
       // 从内存查询（需要先存储在全局变量中）
       if (!global.currentOperations) {
