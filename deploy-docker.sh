@@ -147,9 +147,17 @@ echo "请选择启动模式："
 echo "1) 内存存储模式 (适合小文件测试，端口5000)"
 echo "2) 数据库存储模式 (适合大文件生产环境，端口5000)"
 echo ""
-echo -n "请输入选择 (1 或 2): "
-read choice < /dev/tty
-echo "您选择了: $choice"
+echo "请输入选择 (1 或 2)，10秒内无输入将自动选择数据库模式(2): "
+
+# 使用timeout命令实现10秒超时
+if timeout 10 bash -c 'read choice < /dev/tty && echo $choice' 2>/dev/null; then
+    choice=$(timeout 10 bash -c 'read choice < /dev/tty && echo $choice' 2>/dev/null)
+    echo "您选择了: $choice"
+else
+    choice="2"
+    echo ""
+    log_warning "10秒内无输入，自动选择数据库存储模式(2)"
+fi
 
 # 根据选择设置变量
 case $choice in
@@ -166,10 +174,11 @@ case $choice in
         CHECK_PORT=5000
         ;;
     *)
-        log_error "无效选择，默认使用内存存储模式"
-        SERVICE_NAME="app"
-        BUILD_TARGET="app"
-        PROFILE_FLAG="--profile memory-only"
+        log_warning "无效选择，默认使用数据库存储模式"
+        choice="2"
+        SERVICE_NAME="mysql-binlog-analyzer-db"
+        BUILD_TARGET="mysql-binlog-analyzer-db mysql"
+        PROFILE_FLAG="--profile with-database"
         CHECK_PORT=5000
         ;;
 esac
