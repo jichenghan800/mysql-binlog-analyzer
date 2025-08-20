@@ -187,7 +187,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         sendProgress(progressSessionId, {
           type: 'parsing',
           stage: '解析binlog文件',
-          progress: parseFloat(progress),
+          progress: parseFloat(progress), // 直接使用计算出的百分比
           processed: processedLines,
           total: totalLines,
           message: `解析进度: ${progress}% (${processedLines.toLocaleString()}/${totalLines.toLocaleString()})`

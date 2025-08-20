@@ -103,11 +103,11 @@ class DatabaseManager {
                 
                 // 发送保存进度
                 if (progressSessionId && this.sendProgress) {
-                    const progress = (saved / operations.length * 100).toFixed(1);
+                    const progress = (saved / operations.length * 100);
                     this.sendProgress(progressSessionId, {
                         type: 'saving',
                         stage: '保存到数据库',
-                        progress: parseFloat(progress),
+                        progress: progress, // 直接使用计算出的百分比
                         saved: saved,
                         total: operations.length,
                         message: `已保存 ${saved.toLocaleString()}/${operations.length.toLocaleString()} 条操作到数据库`

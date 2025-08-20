@@ -1188,47 +1188,42 @@ class BinlogAnalyzer {
     }
 
     updateProgress(data, progressBar, progressOverlay, progressText, progressDetails) {
-        let overallProgress = 0;
-        
+        // 直接使用后端推送的实际进度值
         switch (data.type) {
             case 'parsing':
-                // 解析阶段占20-80%
-                overallProgress = 20 + (data.progress * 0.6);
-                progressBar.style.width = overallProgress + '%';
-                progressOverlay.textContent = overallProgress.toFixed(1) + '%';
+                // 使用后端计算的实际解析进度
+                progressBar.style.width = data.progress + '%';
+                progressOverlay.textContent = data.progress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'parsed':
-                overallProgress = 80;
-                progressBar.style.width = overallProgress + '%';
-                progressOverlay.textContent = overallProgress + '%';
+                progressBar.style.width = '100%';
+                progressOverlay.textContent = '100%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'extracting':
-                overallProgress = 85;
-                progressBar.style.width = overallProgress + '%';
-                progressOverlay.textContent = overallProgress + '%';
+                // 提取阶段保持100%
+                progressBar.style.width = '100%';
+                progressOverlay.textContent = '100%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'saving':
-                // 保存阶段占85-95%
-                overallProgress = 85 + (data.progress * 0.1);
-                progressBar.style.width = overallProgress + '%';
-                progressOverlay.textContent = overallProgress.toFixed(1) + '%';
+                // 使用后端计算的实际保存进度
+                progressBar.style.width = data.progress + '%';
+                progressOverlay.textContent = data.progress.toFixed(1) + '%';
                 progressText.textContent = data.stage;
                 progressDetails.textContent = data.message;
                 break;
                 
             case 'complete':
-                overallProgress = 95;
-                progressBar.style.width = overallProgress + '%';
-                progressOverlay.textContent = overallProgress + '%';
+                progressBar.style.width = '100%';
+                progressOverlay.textContent = '100%';
                 progressText.textContent = data.message;
                 progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
                 break;
