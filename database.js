@@ -78,8 +78,8 @@ class DatabaseManager {
             
             console.log(`使用批次大小: ${batchSize}, 总操作数: ${operations.length}`);
             
-            // 开始事务
-            await this.connection.execute('START TRANSACTION');
+            // 开始事务 - 使用query而不是execute
+            await this.connection.query('START TRANSACTION');
             
             try {
                 for (let i = 0; i < operations.length; i += batchSize) {
@@ -130,11 +130,11 @@ class DatabaseManager {
                     }
                 }
                 
-                // 提交事务
-                await this.connection.execute('COMMIT');
+                // 提交事务 - 使用query而不是execute
+                await this.connection.query('COMMIT');
             } catch (error) {
-                // 回滚事务
-                await this.connection.execute('ROLLBACK');
+                // 回滚事务 - 使用query而不是execute
+                await this.connection.query('ROLLBACK');
                 throw error;
             }
 
