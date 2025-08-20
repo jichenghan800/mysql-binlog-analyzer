@@ -41,6 +41,12 @@
             max-height: 600px;
             overflow-y: auto;
         }
+        .table-responsive thead th {
+            position: sticky;
+            top: 0;
+            background-color: #212529;
+            z-index: 10;
+        }
         .filter-section {
             background-color: #f8f9fa;
             border-radius: 10px;
@@ -217,15 +223,13 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">快速筛选</label>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="analyzer.clearAllFilters()">
-                                    <i class="fas fa-times"></i> 清空筛选
-                                </button>
-                                <button type="button" class="btn btn-outline-info btn-sm" onclick="analyzer.applyFilters()">
-                                    <i class="fas fa-search"></i> 刷新
-                                </button>
-                            </div>
+                            <label class="form-label">排序方式</label>
+                            <select class="form-select" id="sortBy">
+                                <option value="timestamp">时间</option>
+                                <option value="type">操作类型</option>
+                                <option value="database_name">数据库</option>
+                                <option value="table_name">表名</option>
+                            </select>
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -264,11 +268,11 @@
                             <button class="btn btn-sm btn-outline-info me-2" onclick="analyzer.setTimeRange('today')">
                                 今天
                             </button>
-                            <button class="btn btn-sm btn-outline-success me-2" onclick="analyzer.setTimeRange('earliest')">
-                                最早时间
+                            <button class="btn btn-sm btn-outline-secondary me-2" onclick="analyzer.clearAllFilters()">
+                                <i class="fas fa-times"></i> 清空筛选
                             </button>
-                            <button class="btn btn-sm btn-outline-warning me-2" onclick="analyzer.setTimeRange('latest')">
-                                最晚时间
+                            <button class="btn btn-sm btn-outline-info me-2" onclick="analyzer.applyFilters()">
+                                <i class="fas fa-search"></i> 刷新
                             </button>
                         </div>
                     </div>

@@ -26,7 +26,10 @@ class BinlogAnalyzer {
         document.getElementById('typeFilter').addEventListener('change', this.applyFilters.bind(this));
         document.getElementById('databaseFilter').addEventListener('change', this.applyFilters.bind(this));
         document.getElementById('tableFilter').addEventListener('change', this.applyFilters.bind(this));
-        document.getElementById('sortBy').addEventListener('change', this.applyFilters.bind(this));
+        document.getElementById('sortBy').addEventListener('change', (e) => {
+            this.currentSort.field = e.target.value;
+            this.applyFilters();
+        });
         
         // 初始化时间选择器
         this.initializeDatePickers();
@@ -990,7 +993,9 @@ class BinlogAnalyzer {
     sortBy(field, order) {
         this.currentSort = { field: field, order: order };
         this.currentPage = 1; // 重置到第一页
-        this.applyFilters();
+        
+        // 更新下拉框选中状态
+        document.getElementById('sortBy').value = field;
         
         const fieldNames = {
             'timestamp': '时间',
@@ -1000,6 +1005,7 @@ class BinlogAnalyzer {
         };
         
         this.showNotification(`已按${fieldNames[field] || field}${order === 'asc' ? '正序' : '倒序'}排列`, 'success');
+        this.applyFilters();
     }
 
     // 分页方法
