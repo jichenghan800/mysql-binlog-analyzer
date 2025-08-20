@@ -1,9 +1,10 @@
 const mysql = require('mysql2/promise');
 
 class DatabaseManager {
-    constructor() {
+    constructor(sendProgressCallback = null) {
         this.connection = null;
         this.useDatabase = process.env.USE_DATABASE === 'true';
+        this.sendProgress = sendProgressCallback;
     }
 
     async connect() {
@@ -52,7 +53,7 @@ class DatabaseManager {
         await this.connection.execute(createTableSQL);
     }
 
-    async saveOperations(sessionId, operations) {
+    async saveOperations(sessionId, operations, progressSessionId = null) {
         if (!this.useDatabase || !this.connection) {
             return false;
         }
@@ -86,7 +87,21 @@ class DatabaseManager {
                     await this.connection.execute(insertSQL, value);
                 }
                 
-                console.log(`已保存 ${Math.min(i + batchSize, operations.length)}/${operations.length} 条操作到数据库`);
+                const saved = Math.min(i + batchSize, operations.length);
+                console.log(`已保存 ${saved}/${operations.length} 条操作到数据库`);
+                
+                // 发送保存进度
+                if (progressSessionId && this.sendProgress) {
+                    const progress = (saved / operations.length * 100).toFixed(1);
+                    this.sendProgress(progressSessionId, {
+                        type: 'saving',
+                        stage: '保存到数据库',
+                        progress: parseFloat(progress),
+                        saved: saved,
+                        total: operations.length,
+                        message: `已保存 ${saved.toLocaleString()}/${operations.length.toLocaleString()} 条操作到数据库`
+                    });
+                }
             }
 
             return true;

@@ -153,39 +153,20 @@ class BinlogAnalyzer {
         progressDetails.textContent = '初始化中...';
 
         try {
-            let progress = 0;
-            let stage = 'upload';
-            let processedLines = 0;
-            let totalLines = 0;
+            let eventSource = null;
+            let uploadProgress = 0;
             
-            const progressInterval = setInterval(() => {
-                if (stage === 'upload') {
-                    progress += Math.random() * 15;
-                    if (progress > 60) {
-                        progress = 60;
-                        stage = 'parse';
-                        progressText.textContent = '正在解析binlog文件...';
-                        progressDetails.textContent = '正在读取文件内容...';
-                    } else {
-                        progressDetails.textContent = `上传进度: ${progress.toFixed(1)}%`;
-                    }
-                } else if (stage === 'parse') {
-                    progress += Math.random() * 3;
-                    if (progress > 85) progress = 85;
-                    
-                    // 模拟解析进度
-                    if (totalLines === 0) {
-                        totalLines = Math.floor(Math.random() * 10000) + 1000; // 模拟总行数
-                    }
-                    processedLines = Math.floor((progress - 60) / 25 * totalLines);
-                    if (processedLines > totalLines) processedLines = totalLines;
-                    
-                    progressDetails.textContent = `已处理: ${processedLines.toLocaleString()} / ${totalLines.toLocaleString()} 行`;
+            // 初始上传进度模拟
+            const uploadInterval = setInterval(() => {
+                uploadProgress += Math.random() * 10;
+                if (uploadProgress > 30) {
+                    uploadProgress = 30;
+                    clearInterval(uploadInterval);
                 }
-                
-                progressBar.style.width = progress + '%';
-                progressBar.textContent = progress.toFixed(1) + '%';
-            }, 300);
+                progressBar.style.width = uploadProgress + '%';
+                progressBar.textContent = uploadProgress.toFixed(1) + '%';
+                progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
+            }, 200);
 
             const startTime = Date.now();
             const response = await fetch('/upload', {
@@ -193,18 +174,43 @@ class BinlogAnalyzer {
                 body: formData
             });
 
-            clearInterval(progressInterval);
+            clearInterval(uploadInterval);
             
             const result = await response.json();
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(1);
 
             if (result.success) {
+                // 建立 SSE 连接接收实时进度
+                if (result.progressSessionId) {
+                    eventSource = new EventSource(`/progress/${result.progressSessionId}`);
+                    
+                    eventSource.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            this.updateProgress(data, progressBar, progressText, progressDetails);
+                        } catch (error) {
+                            console.error('解析进度数据失败:', error);
+                        }
+                    };
+                    
+                    eventSource.onerror = (error) => {
+                        console.error('SSE 连接错误:', error);
+                        eventSource.close();
+                    };
+                }
+                
                 // 显示最终结果
-                progressBar.style.width = '100%';
-                progressBar.textContent = '100%';
-                progressText.textContent = '解析完成！';
-                progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
+                setTimeout(() => {
+                    progressBar.style.width = '100%';
+                    progressBar.textContent = '100%';
+                    progressText.textContent = '解析完成！';
+                    progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
+                    
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                }, 1000);
                 
                 this.operations = result.operations;
                 this.displayResults();
@@ -1176,6 +1182,45 @@ class BinlogAnalyzer {
             }
             document.body.removeChild(textArea);
         });
+    }
+
+    updateProgress(data, progressBar, progressText, progressDetails) {
+        switch (data.type) {
+            case 'parsing':
+                progressBar.style.width = (30 + data.progress * 0.4) + '%'; // 30-70%
+                progressBar.textContent = (30 + data.progress * 0.4).toFixed(1) + '%';
+                progressText.textContent = data.stage;
+                progressDetails.textContent = data.message;
+                break;
+                
+            case 'parsed':
+                progressBar.style.width = '70%';
+                progressBar.textContent = '70%';
+                progressText.textContent = data.stage;
+                progressDetails.textContent = data.message;
+                break;
+                
+            case 'extracting':
+                progressBar.style.width = '75%';
+                progressBar.textContent = '75%';
+                progressText.textContent = data.stage;
+                progressDetails.textContent = data.message;
+                break;
+                
+            case 'saving':
+                progressBar.style.width = (75 + data.progress * 0.2) + '%'; // 75-95%
+                progressBar.textContent = (75 + data.progress * 0.2).toFixed(1) + '%';
+                progressText.textContent = data.stage;
+                progressDetails.textContent = data.message;
+                break;
+                
+            case 'complete':
+                progressBar.style.width = '95%';
+                progressBar.textContent = '95%';
+                progressText.textContent = data.message;
+                progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
+                break;
+        }
     }
 
     showNotification(message, type) {

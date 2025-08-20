@@ -8,7 +8,15 @@ const DatabaseManager = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const dbManager = new DatabaseManager();
+
+// 先声明 sendProgress 函数
+let sendProgress;
+
+const dbManager = new DatabaseManager((sessionId, data) => {
+    if (sendProgress) {
+        sendProgress(sessionId, data);
+    }
+});
 
 // 中间件
 app.use(cors());
@@ -70,7 +78,7 @@ function isTestFormat(filePath) {
 }
 
 // 解析binlog文件
-function parseBinlog(filePath) {
+function parseBinlog(filePath, progressSessionId = null) {
   return new Promise((resolve, reject) => {
     // 检查文件大小
     const stats = fs.statSync(filePath);
@@ -142,7 +150,7 @@ function parseBinlog(filePath) {
 }
 
 // 解析SQL操作
-function parseOperations(binlogOutput) {
+function parseOperations(binlogOutput, progressSessionId = null) {
   const operations = [];
   const lines = binlogOutput.split('\n');
   const totalLines = lines.length;
@@ -173,6 +181,18 @@ function parseOperations(binlogOutput) {
     if (processedLines % 1000 === 0) {
       const progress = ((processedLines / totalLines) * 100).toFixed(1);
       console.log(`解析进度: ${progress}% (${processedLines}/${totalLines})`);
+      
+      // 发送进度更新
+      if (progressSessionId) {
+        sendProgress(progressSessionId, {
+          type: 'parsing',
+          stage: '解析binlog文件',
+          progress: parseFloat(progress),
+          processed: processedLines,
+          total: totalLines,
+          message: `解析进度: ${progress}% (${processedLines.toLocaleString()}/${totalLines.toLocaleString()})`
+        });
+      }
     }
 
     // 内存监控，高内存服务器配置
@@ -314,6 +334,16 @@ function parseOperations(binlogOutput) {
         operations.push(currentOperation);
         if (operations.length % 100 === 0) {
           console.log(`已保存 ${operations.length} 个操作...`);
+          
+          // 发送操作提取进度
+          if (progressSessionId) {
+            sendProgress(progressSessionId, {
+              type: 'extracting',
+              stage: '提取操作',
+              operations: operations.length,
+              message: `已提取 ${operations.length} 个操作`
+            });
+          }
         }
       }
       currentOperation = null;
@@ -405,6 +435,17 @@ function parseOperations(binlogOutput) {
   }
 
   console.log(`解析完成，共找到 ${operations.length} 个操作`);
+  
+  // 发送解析完成消息
+  if (progressSessionId) {
+    sendProgress(progressSessionId, {
+      type: 'parsed',
+      stage: '解析完成',
+      total: operations.length,
+      message: `解析完成，共找到 ${operations.length} 个操作`
+    });
+  }
+  
   return operations;
 }
 
@@ -546,6 +587,46 @@ function getMemoryUsage() {
   };
 }
 
+// 存储活跃的 SSE 连接
+const activeConnections = new Map();
+
+// SSE 进度推送端点
+app.get('/progress/:sessionId', (req, res) => {
+  const sessionId = req.params.sessionId;
+  
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+  
+  // 存储连接
+  activeConnections.set(sessionId, res);
+  
+  // 发送初始消息
+  res.write('data: {"type":"connected","message":"连接已建立"}\n\n');
+  
+  // 处理连接关闭
+  req.on('close', () => {
+    activeConnections.delete(sessionId);
+  });
+});
+
+// 发送进度更新
+sendProgress = function(sessionId, data) {
+  const connection = activeConnections.get(sessionId);
+  if (connection) {
+    try {
+      connection.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      console.error('发送进度失败:', error);
+      activeConnections.delete(sessionId);
+    }
+  }
+};
+
 // API路由
 app.post('/upload', upload.single('binlogFile'), async (req, res) => {
   let filePath = null;
@@ -563,15 +644,18 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     console.log('初始内存使用:', initialMemory);
 
     // 解析binlog
+    // 生成会话ID用于进度跟踪
+    const progressSessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    
     console.log('开始解析binlog...');
-    const binlogOutput = await parseBinlog(filePath);
+    const binlogOutput = await parseBinlog(filePath, progressSessionId);
     
     // 显示解析后内存使用
     const afterParseMemory = getMemoryUsage();
     console.log('解析后内存使用:', afterParseMemory);
     
     console.log('开始提取操作...');
-    const operations = parseOperations(binlogOutput);
+    const operations = parseOperations(binlogOutput, progressSessionId);
     
     // 尝试保存到数据库（所有文件）
     let sessionId = null;
@@ -585,7 +669,7 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     
     if (shouldUseDatabase && operations.length > 0) {
       sessionId = dbManager.generateSessionId();
-      const saved = await dbManager.saveOperations(sessionId, operations);
+      const saved = await dbManager.saveOperations(sessionId, operations, progressSessionId);
       if (saved) {
         console.log(`数据已保存到数据库，会话 ID: ${sessionId}`);
       } else if (isDocker) {
@@ -618,6 +702,14 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       }
     }
 
+    // 发送完成消息
+    sendProgress(progressSessionId, {
+      type: 'complete',
+      message: '解析完成',
+      total: operations.length,
+      memoryUsage: finalMemory
+    });
+    
     res.json({
       success: true,
       operations: operations.slice(0, 50), // 只返回前50条作为预览
@@ -626,6 +718,7 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       useDatabase: !!sessionId,
       memoryUsage: finalMemory,
       hasMore: operations.length > 50,
+      progressSessionId: progressSessionId,
       // 返回筛选选项
       filterOptions: {
         databases: Array.from(new Set(operations.map(op => op.database))).sort(),
