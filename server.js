@@ -861,6 +861,58 @@ function filterAndSortOperations(operations, options) {
   };
 }
 
+// 获取时间范围
+app.post('/time-range', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.json({ success: false, error: '缺少sessionId' });
+    }
+    
+    // 如果使用数据库，从数据库查询
+    if (dbManager && dbManager.useDatabase) {
+      try {
+        const [rows] = await dbManager.connection.execute(
+          'SELECT MIN(timestamp) as minTime, MAX(timestamp) as maxTime FROM binlog_operations WHERE session_id = ? AND timestamp IS NOT NULL',
+          [sessionId]
+        );
+        
+        if (rows.length > 0 && rows[0].minTime && rows[0].maxTime) {
+          return res.json({
+            success: true,
+            minTime: rows[0].minTime,
+            maxTime: rows[0].maxTime
+          });
+        }
+      } catch (dbError) {
+        console.error('数据库查询时间范围失败:', dbError);
+      }
+    }
+    
+    // 如果数据库不可用，从内存中查找
+    if (global.currentOperations) {
+      const timestamps = global.currentOperations
+        .map(op => op.timestamp)
+        .filter(t => t && t !== 'N/A')
+        .sort();
+      
+      if (timestamps.length > 0) {
+        return res.json({
+          success: true,
+          minTime: timestamps[0],
+          maxTime: timestamps[timestamps.length - 1]
+        });
+      }
+    }
+    
+    res.json({ success: false, error: '未找到时间数据' });
+  } catch (error) {
+    console.error('获取时间范围失败:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
 // 获取统计信息
 app.post('/statistics', async (req, res) => {
   try {

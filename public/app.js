@@ -277,8 +277,8 @@ class BinlogAnalyzer {
         // 填充筛选选项
         this.populateFilters();
         
-        // 设置默认时间范围
-        this.setDefaultTimeRange();
+        // 从数据库获取真实的时间范围
+        await this.setTimeRangeFromDatabase();
         
         // 使用后端分页 API 显示操作列表
         await this.loadOperationsFromServer();
@@ -289,37 +289,62 @@ class BinlogAnalyzer {
         document.getElementById('operationsSection').classList.remove('d-none');
     }
 
+    async setTimeRangeFromDatabase() {
+        try {
+            const response = await fetch('/time-range', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sessionId: this.sessionId })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.minTime && result.maxTime) {
+                this.minTimestamp = new Date(result.minTime);
+                this.maxTimestamp = new Date(result.maxTime);
+                
+                console.log('从数据库获取的时间范围:');
+                console.log('最小时间:', this.formatDateTime(this.minTimestamp));
+                console.log('最大时间:', this.formatDateTime(this.maxTimestamp));
+                
+                // 设置默认时间值
+                if (this.startTimePicker) {
+                    this.startTimePicker.setDate(this.minTimestamp, false);
+                    document.getElementById('startTime').value = this.formatDateTimeForInput(this.minTimestamp);
+                }
+                
+                if (this.endTimePicker) {
+                    this.endTimePicker.setDate(this.maxTimestamp, false);
+                    document.getElementById('endTime').value = this.formatDateTimeForInput(this.maxTimestamp);
+                }
+                
+                // 更新placeholder显示时间范围
+                document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(this.minTimestamp)}`;
+                document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(this.maxTimestamp)}`;
+            } else {
+                console.log('无法从数据库获取时间范围，使用默认方法');
+                this.setDefaultTimeRange();
+            }
+        } catch (error) {
+            console.error('获取时间范围失败:', error);
+            this.setDefaultTimeRange();
+        }
+    }
+    
     setDefaultTimeRange() {
         if (this.operations.length === 0) return;
         
-        console.log('调试: 开始设置默认时间范围, 操作数量:', this.operations.length);
-        console.log('前5个操作的原始时间戳:', this.operations.slice(0, 5).map(op => op.timestamp));
-        
         // 获取所有有效的时间戳
         const timestamps = this.operations
-            .map(op => {
-                const parsed = this.parseTimestamp(op.timestamp);
-                if (!parsed) {
-                    console.log('无法解析时间戳:', op.timestamp);
-                }
-                return parsed;
-            })
+            .map(op => this.parseTimestamp(op.timestamp))
             .filter(t => t !== null)
             .sort((a, b) => a - b);
-        
-        console.log('有效时间戳数量:', timestamps.length);
-        if (timestamps.length > 0) {
-            console.log('最早时间戳:', timestamps[0]);
-            console.log('最晚时间戳:', timestamps[timestamps.length - 1]);
-        }
         
         if (timestamps.length > 0) {
             this.minTimestamp = timestamps[0];
             this.maxTimestamp = timestamps[timestamps.length - 1];
-            
-            console.log('设置默认时间范围:');
-            console.log('最小时间:', this.formatDateTime(this.minTimestamp));
-            console.log('最大时间:', this.formatDateTime(this.maxTimestamp));
             
             // 设置默认时间值
             if (this.startTimePicker) {
