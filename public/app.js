@@ -750,14 +750,8 @@ class BinlogAnalyzer {
     }
 
     createTimeRangeElement() {
-        const element = document.createElement('small');
-        element.id = 'timeRange';
-        element.className = 'text-muted d-block mt-1';
-        
-        const cardHeader = document.querySelector('#operationsSection .card-header');
-        cardHeader.appendChild(element);
-        
-        return element;
+        // 时间范围元素已在HTML中定义，直接返回
+        return document.getElementById('timeRange');
     }
 
     formatDateTime(date) {
