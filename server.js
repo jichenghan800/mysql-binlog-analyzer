@@ -628,14 +628,18 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
       error: '解析binlog文件失败: ' + error.message 
     });
   } finally {
-    // 确保清理上传的文件
+    // 延迟清理上传的文件，避免并发访问冲突
     if (filePath && fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-        console.log('已清理临时文件:', filePath);
-      } catch (cleanupError) {
-        console.error('清理临时文件失败:', cleanupError);
-      }
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log('已清理临时文件:', filePath);
+          }
+        } catch (cleanupError) {
+          console.error('清理临时文件失败:', cleanupError);
+        }
+      }, 5000); // 5秒后删除
     }
   }
 });
