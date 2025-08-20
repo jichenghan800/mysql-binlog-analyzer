@@ -419,7 +419,12 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       const columnMatch = line.match(/###\s+@(\d+)=(.+)/);
       if (columnMatch) {
         const columnIndex = parseInt(columnMatch[1]);
-        const value = columnMatch[2];
+        let value = columnMatch[2];
+        
+        // 清理值中可能的异常字符
+        if (value && typeof value === 'string') {
+          value = value.replace(/\$\d+/g, '').trim();
+        }
         
         if (currentOperation.type === 'UPDATE') {
           if (currentSection === 'SET') {
