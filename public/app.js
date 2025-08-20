@@ -1470,20 +1470,8 @@ class BinlogAnalyzer {
                 reuploadBtn.style.boxShadow = '0 2px 8px rgba(0,123,255,0.3)';
             };
             reuploadBtn.onclick = () => {
-                const fileInput = document.getElementById('fileInput');
-                if (fileInput) {
-                    fileInput.value = '';
-                    const handleFileChange = (e) => {
-                        if (e.target.files.length > 0) {
-                            // 重新上传时需要重置界面状态并显示进度条
-                            this.resetUploadState();
-                            this.uploadFile(e.target.files[0]);
-                        }
-                        fileInput.removeEventListener('change', handleFileChange);
-                    };
-                    fileInput.addEventListener('change', handleFileChange);
-                    fileInput.click();
-                }
+                // 直接刷新页面回到初始状态
+                window.location.reload();
             };
             // 插入到标题后面，但不在flex容器中
             const title = titleRow.querySelector('h1');
@@ -1533,46 +1521,7 @@ class BinlogAnalyzer {
         }
     }
     
-    resetUploadState() {
-        // 重置上传状态，显示上传区域和进度条
-        const uploadArea = document.getElementById('uploadArea');
-        const doraemonIcon = document.getElementById('doraemonIcon');
-        const progressContainer = document.getElementById('uploadProgress');
-        const progressBar = document.querySelector('#uploadProgress .progress-bar');
-        const progressOverlay = document.getElementById('progressOverlay');
-        
-        // 显示上传区域但隐藏文件选择部分
-        if (uploadArea) {
-            uploadArea.style.display = 'none';
-        }
-        
-        // 显示机器猫图标
-        if (doraemonIcon) {
-            doraemonIcon.classList.remove('d-none');
-        }
-        
-        // 重置并显示进度条
-        if (progressContainer) {
-            progressContainer.classList.remove('d-none');
-        }
-        if (progressBar) {
-            progressBar.style.width = '0%';
-        }
-        if (progressOverlay) {
-            progressOverlay.textContent = '0%';
-        }
-        
-        // 清理进度文本
-        const progressText = document.querySelector('#uploadProgress .progress-text');
-        const progressDetails = document.querySelector('#uploadProgress .progress-details');
-        if (progressText) {
-            progressText.textContent = '正在上传文件...';
-        }
-        if (progressDetails) {
-            progressDetails.textContent = '初始化中...';
-        }
-    }
-    
+
     showNotification(message, type) {
         const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
         const notification = document.createElement('div');
