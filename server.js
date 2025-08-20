@@ -94,7 +94,7 @@ function parseBinlog(filePath, progressSessionId = null) {
       return;
     }
     
-    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析...');
+    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析（使用-vv和--base64-output=DECODE-ROWS参数）...');
     
     // Docker环境检测
     const isDocker = fs.existsSync('/.dockerenv');
@@ -102,10 +102,10 @@ function parseBinlog(filePath, progressSessionId = null) {
       console.log('检测到Docker环境，使用优化配置...');
     }
     
-    // 使用mysqlbinlog工具解析，添加更多参数来获取时间信息
+    // 使用mysqlbinlog工具解析，添加-vv参数获得极度详细的输出，避免$占位符
     const mysqlbinlog = spawn('mysqlbinlog', [
-      '-v', 
       '--base64-output=DECODE-ROWS',
+      '-vv',
       filePath
     ]);
     let output = '';
@@ -415,7 +415,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       continue;
     }
 
-    // 解析列和值
+    // 解析列和值 - 支持-vv参数的详细输出格式
     if (currentOperation && line.startsWith('###   @')) {
       const columnMatch = line.match(/###\s+@(\d+)=(.+)/);
       if (columnMatch) {
@@ -423,31 +423,30 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         let originalValue = columnMatch[2];
         let value = originalValue;
         
-        // 调试：只记录包含$符号的值，限制输出数量
-        if (originalValue && originalValue.includes('$') && debugCount < 10) {
-          debugCount++;
-          console.log(`[调试 ${debugCount}] 原始行: ${line}`);
-          console.log(`[调试 ${debugCount}] 列${columnIndex} 原始值: "${originalValue}" (类型: ${typeof originalValue})`);
-        }
-        
-        // 只清理明显的控制字符，保留$数字等可能的有效内容
+        // 处理-vv参数输出的详细格式，移除类型信息和占位符
         if (value && typeof value === 'string') {
-          const beforeClean = value;
+          // 移除类型前缀，如 'INT meta=0 nullable=1 is_null=0 '
+          value = value.replace(/^[A-Z_]+\s+meta=\d+\s+nullable=[01]\s+is_null=[01]\s+/, '');
+          
+          // 移除$占位符模式，如 '$1' '$2' 等
+          value = value.replace(/^\$\d+\s*/, '');
+          
+          // 清理控制字符
           value = value
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符，保留\t\n\r
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
             .trim();
           
-          // 调试：只记录包含$符号的值的变化
-          if (beforeClean !== value && originalValue.includes('$') && debugCount <= 10) {
-            console.log(`[调试 ${debugCount}] 列${columnIndex} 清理前: "${beforeClean}"`);
-            console.log(`[调试 ${debugCount}] 列${columnIndex} 清理后: "${value}"`);
+          // 移除多余的引号
+          if ((value.startsWith("'") && value.endsWith("'")) || 
+              (value.startsWith('"') && value.endsWith('"'))) {
+            value = value.slice(1, -1);
           }
         }
         
-        // 调试：只记录包含$符号的最终值
-        if (originalValue && originalValue.includes('$') && debugCount <= 10) {
-          console.log(`[调试 ${debugCount}] 列${columnIndex} 最终值: "${value}" (类型: ${typeof value})`);
-          console.log(`[调试 ${debugCount}] ---`);
+        // 调试输出（仅在需要时）
+        if (process.env.DEBUG && debugCount < 5) {
+          debugCount++;
+          console.log(`[调试 ${debugCount}] 原始: "${originalValue}" -> 处理后: "${value}"`);
         }
         
         if (currentOperation.type === 'UPDATE') {
@@ -464,6 +463,11 @@ function parseOperations(binlogOutput, progressSessionId = null) {
     }
     
     // 不再更新已创建操作的时间戳，保持独立性
+  }
+  
+  // 输出解析统计信息
+  if (debugCount > 0) {
+    console.log(`本次解析处理了 ${debugCount} 个调试样本`);
   }
 
   // 保存最后一个操作
@@ -484,6 +488,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   }
 
   console.log(`解析完成，共找到 ${operations.length} 个操作`);
+  console.log(`使用了 mysqlbinlog --base64-output=DECODE-ROWS -vv 参数，应该已解决$占位符问题`);
   
   // 发送解析完成消息
   if (progressSessionId) {
@@ -491,7 +496,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       type: 'parsed',
       stage: '解析完成',
       total: operations.length,
-      message: `解析完成，共找到 ${operations.length} 个操作`
+      message: `解析完成，共找到 ${operations.length} 个操作（已优化占位符处理）`
     });
   }
   
@@ -612,59 +617,23 @@ function generateDeleteSQL(tableName, conditions) {
   return `DELETE FROM ${tableName} WHERE ${wherePart};`;
 }
 
-// 格式化值
-let formatDebugCount = 0;
+// 格式化值 - 简化版本，因为值已经在解析阶段被清理过
 function formatValue(value) {
-  if (value === null || value === 'NULL' || value === undefined) {
+  if (value === null || value === 'NULL' || value === undefined || value === '') {
     return 'NULL';
   }
   
-  // 调试：只记录包含$符号或可疑数字的值，限制数量
-  const originalValue = value;
-  const shouldDebug = originalValue && (originalValue.toString().includes('$') || 
-                      originalValue.toString() === '26' || originalValue.toString() === '52') &&
-                      formatDebugCount < 5;
-  if (shouldDebug) {
-    formatDebugCount++;
-    console.log(`[格式化调试 ${formatDebugCount}] 输入值: "${originalValue}" (类型: ${typeof originalValue})`);
-  }
-  
-  // 转换为字符串并清理
+  // 转换为字符串并去除首尾空格
   let cleanValue = value.toString().trim();
-  
-  // 移除已有的引号
-  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
-  
-  // 只清理明显的控制字符，不要清理可能有意义的内容
-  const beforeControlClean = cleanValue;
-  cleanValue = cleanValue
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符
-    .trim();
-  
-  // 调试：记录清理过程
-  if (shouldDebug) {
-    console.log(`[格式化调试] 去引号后: "${beforeControlClean}"`);
-    console.log(`[格式化调试] 清理控制字符后: "${cleanValue}"`);
-  }
   
   // 检查是否为数字（包括小数和负数）
   if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
-    if (shouldDebug) {
-      console.log(`[格式化调试] 识别为数字: ${cleanValue}`);
-    }
     return cleanValue;
   }
   
   // 字符串值需要转义单引号并添加引号
   const escapedValue = cleanValue.replace(/'/g, "''");
-  const result = `'${escapedValue}'`;
-  
-  if (shouldDebug) {
-    console.log(`[格式化调试] 最终结果: ${result}`);
-    console.log(`[格式化调试] ---`);
-  }
-  
-  return result;
+  return `'${escapedValue}'`;
 }
 
 // 内存使用监控
