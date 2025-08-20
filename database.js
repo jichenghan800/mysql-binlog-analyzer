@@ -207,12 +207,17 @@ class DatabaseManager {
             if (filters.startTime) {
                 whereClause += ' AND timestamp >= ?';
                 params.push(filters.startTime);
+                console.log('添加开始时间筛选:', filters.startTime);
             }
 
             if (filters.endTime) {
                 whereClause += ' AND timestamp <= ?';
                 params.push(filters.endTime);
+                console.log('添加结束时间筛选:', filters.endTime);
             }
+            
+            console.log('数据库查询SQL:', `SELECT COUNT(*) as total FROM binlog_operations ${whereClause}`);
+            console.log('查询参数:', params);
 
             // 获取总数
             const countSQL = `SELECT COUNT(*) as total FROM binlog_operations ${whereClause}`;
@@ -235,6 +240,7 @@ class DatabaseManager {
 
             // 执行查询
             const dataSQL = `SELECT * FROM binlog_operations ${whereClause} ${orderClause} ${limitClause}`;
+            console.log('数据查询SQL:', dataSQL);
             const [rows] = await this.connection.execute(dataSQL, params);
             
             const operations = rows.map(row => {
