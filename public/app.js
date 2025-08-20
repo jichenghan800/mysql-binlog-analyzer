@@ -1483,10 +1483,10 @@ class BinlogAnalyzer {
                     fileInput.click();
                 }
             };
-            // 插入到帮助按钮之前
-            const helpButton = titleRow.querySelector('a[href="help.html"]');
-            if (helpButton) {
-                titleRow.insertBefore(reuploadBtn, helpButton);
+            // 插入到标题后面，但不在flex容器中
+            const title = titleRow.querySelector('h1');
+            if (title) {
+                title.insertAdjacentElement('afterend', reuploadBtn);
             } else {
                 titleRow.appendChild(reuploadBtn);
             }
