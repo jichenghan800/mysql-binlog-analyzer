@@ -5,6 +5,9 @@ class BinlogAnalyzer {
         this.currentPage = 1;
         this.pageSize = 100; // 每页显示100条
         this.currentSort = { field: 'timestamp', order: 'desc' }; // 默认按时间倒序
+        this.timeFilterEnabled = false; // 时间筛选默认禁用
+        this.minTimestamp = null;
+        this.maxTimestamp = null;
         this.initializeEventListeners();
     }
 
@@ -215,7 +218,7 @@ class BinlogAnalyzer {
 
             if (result.success) {
                 
-                // 等待 SSE 推送完成消息，或者超时后显示最终结果
+                        // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                         progressBar.style.width = '100%';
@@ -223,8 +226,20 @@ class BinlogAnalyzer {
                         progressText.textContent = '解析完成！';
                         progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
                         eventSource.close();
+                        
+                        // 超时后也隐藏进度条
+                        setTimeout(() => {
+                            const progressContainer = document.getElementById('uploadProgress');
+                            const uploadSection = document.getElementById('uploadSection');
+                            if (progressContainer) {
+                                progressContainer.classList.add('d-none');
+                            }
+                            if (uploadSection) {
+                                uploadSection.style.display = 'block';
+                            }
+                        }, 2000);
                     }
-                }, 5000); // 增加超时时间
+                }, 8000);
                 
                 this.operations = result.operations;
                 this.sessionId = result.sessionId; // 保存 sessionId 用于后续分页查询
@@ -260,13 +275,6 @@ class BinlogAnalyzer {
             if (eventSource) {
                 eventSource.close();
             }
-            
-            setTimeout(() => {
-                progressContainer.classList.add('d-none');
-                if (uploadSection) {
-                    uploadSection.style.display = 'block';
-                }
-            }, 3000);
         }
     }
 
@@ -299,25 +307,25 @@ class BinlogAnalyzer {
             .sort((a, b) => a - b);
         
         if (timestamps.length > 0) {
-            const earliest = timestamps[0];
-            const latest = timestamps[timestamps.length - 1];
+            this.minTimestamp = timestamps[0];
+            this.maxTimestamp = timestamps[timestamps.length - 1];
             
             // 设置flatpickr的最小和最大日期
             if (this.startTimePicker) {
-                this.startTimePicker.set('minDate', earliest);
-                this.startTimePicker.set('maxDate', latest);
-                this.startTimePicker.clear();
+                this.startTimePicker.set('minDate', this.minTimestamp);
+                this.startTimePicker.set('maxDate', this.maxTimestamp);
+                this.startTimePicker.setDate(this.minTimestamp, false); // 设置为最小时间
             }
             
             if (this.endTimePicker) {
-                this.endTimePicker.set('minDate', earliest);
-                this.endTimePicker.set('maxDate', latest);
-                this.endTimePicker.clear();
+                this.endTimePicker.set('minDate', this.minTimestamp);
+                this.endTimePicker.set('maxDate', this.maxTimestamp);
+                this.endTimePicker.setDate(this.maxTimestamp, false); // 设置为最大时间
             }
             
             // 更新placeholder
-            document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(earliest)}`;
-            document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(latest)}`;
+            document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(this.minTimestamp)}`;
+            document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(this.maxTimestamp)}`;
         }
     }
 
@@ -395,20 +403,22 @@ class BinlogAnalyzer {
             const tableFilter = document.getElementById('tableFilter').value;
             const sortBy = document.getElementById('sortBy').value;
             
-            // 获取时间值
+            // 获取时间值（只在启用时间筛选时使用）
             let startTime = '';
             let endTime = '';
             
-            if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
-                startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-            } else {
-                startTime = document.getElementById('startTime').value;
-            }
-            
-            if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
-                endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-            } else {
-                endTime = document.getElementById('endTime').value;
+            if (this.timeFilterEnabled) {
+                if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
+                    startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+                } else {
+                    startTime = document.getElementById('startTime').value;
+                }
+                
+                if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
+                    endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+                } else {
+                    endTime = document.getElementById('endTime').value;
+                }
             }
             
             const requestData = {
@@ -506,20 +516,36 @@ class BinlogAnalyzer {
         }
     }
 
-    applyTimeFilter() {
+    toggleTimeFilter() {
+        this.timeFilterEnabled = !this.timeFilterEnabled;
+        const button = document.getElementById('timeFilterToggle');
+        
+        if (this.timeFilterEnabled) {
+            button.className = 'btn btn-primary';
+            button.innerHTML = '<i class="fas fa-clock"></i> 禁用时间筛选';
+            this.showNotification('时间筛选已启用', 'success');
+        } else {
+            button.className = 'btn btn-outline-primary';
+            button.innerHTML = '<i class="fas fa-clock"></i> 启用时间筛选';
+            this.showNotification('时间筛选已禁用', 'success');
+        }
+        
         this.applyFilters();
-        this.showNotification('时间筛选已应用', 'success');
     }
 
-    clearTimeFilter() {
-        if (this.startTimePicker) {
-            this.startTimePicker.clear();
+    resetTimeRange() {
+        if (this.minTimestamp && this.maxTimestamp) {
+            if (this.startTimePicker) {
+                this.startTimePicker.setDate(this.minTimestamp, false);
+            }
+            if (this.endTimePicker) {
+                this.endTimePicker.setDate(this.maxTimestamp, false);
+            }
+            this.showNotification('时间范围已重置为记录的最小/最大时间', 'success');
+            if (this.timeFilterEnabled) {
+                this.applyFilters();
+            }
         }
-        if (this.endTimePicker) {
-            this.endTimePicker.clear();
-        }
-        this.applyFilters();
-        this.showNotification('时间筛选已清除', 'success');
     }
 
     setTimeRange(range) {
@@ -1186,6 +1212,18 @@ class BinlogAnalyzer {
                 progressOverlay.textContent = '100%';
                 progressText.textContent = data.message;
                 progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
+                
+                // 完成后自动隐藏进度条
+                setTimeout(() => {
+                    const progressContainer = document.getElementById('uploadProgress');
+                    const uploadSection = document.getElementById('uploadSection');
+                    if (progressContainer) {
+                        progressContainer.classList.add('d-none');
+                    }
+                    if (uploadSection) {
+                        uploadSection.style.display = 'block';
+                    }
+                }, 2000);
                 break;
         }
     }

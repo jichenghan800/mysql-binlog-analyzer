@@ -78,41 +78,64 @@ class DatabaseManager {
             
             console.log(`使用批次大小: ${batchSize}, 总操作数: ${operations.length}`);
             
-            for (let i = 0; i < operations.length; i += batchSize) {
-                const batch = operations.slice(i, i + batchSize);
-                const values = batch.map(op => [
-                    sessionId,
-                    op.type,
-                    op.database,
-                    op.table,
-                    op.timestamp,
-                    op.serverId,
-                    JSON.stringify(op.setValues || []),
-                    JSON.stringify(op.whereConditions || []),
-                    JSON.stringify(op.values || []),
-                    op.originalSQL,
-                    op.reverseSQL
-                ]);
-
-                for (const value of values) {
-                    await this.connection.execute(insertSQL, value);
+            // 开始事务
+            await this.connection.execute('START TRANSACTION');
+            
+            try {
+                for (let i = 0; i < operations.length; i += batchSize) {
+                    const batch = operations.slice(i, i + batchSize);
+                    
+                    // 使用批量插入
+                    const values = batch.map(op => [
+                        sessionId,
+                        op.type,
+                        op.database,
+                        op.table,
+                        op.timestamp,
+                        op.serverId,
+                        JSON.stringify(op.setValues || []),
+                        JSON.stringify(op.whereConditions || []),
+                        JSON.stringify(op.values || []),
+                        op.originalSQL,
+                        op.reverseSQL
+                    ]);
+                    
+                    // 构建批量插入 SQL
+                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const batchInsertSQL = `
+                        INSERT INTO binlog_operations 
+                        (session_id, type, database_name, table_name, timestamp, server_id, 
+                         set_values, where_conditions, operation_values, original_sql, reverse_sql)
+                        VALUES ${placeholders}
+                    `;
+                    
+                    // 展开所有参数
+                    const flatValues = values.flat();
+                    await this.connection.execute(batchInsertSQL, flatValues);
+                    
+                    const saved = Math.min(i + batchSize, operations.length);
+                    console.log(`已保存 ${saved}/${operations.length} 条操作到数据库`);
+                    
+                    // 发送保存进度
+                    if (progressSessionId && this.sendProgress) {
+                        const progress = (saved / operations.length * 100);
+                        this.sendProgress(progressSessionId, {
+                            type: 'saving',
+                            stage: '保存到数据库',
+                            progress: progress,
+                            saved: saved,
+                            total: operations.length,
+                            message: `已保存 ${saved.toLocaleString()}/${operations.length.toLocaleString()} 条操作到数据库`
+                        });
+                    }
                 }
                 
-                const saved = Math.min(i + batchSize, operations.length);
-                console.log(`已保存 ${saved}/${operations.length} 条操作到数据库`);
-                
-                // 发送保存进度
-                if (progressSessionId && this.sendProgress) {
-                    const progress = (saved / operations.length * 100);
-                    this.sendProgress(progressSessionId, {
-                        type: 'saving',
-                        stage: '保存到数据库',
-                        progress: progress, // 直接使用计算出的百分比
-                        saved: saved,
-                        total: operations.length,
-                        message: `已保存 ${saved.toLocaleString()}/${operations.length.toLocaleString()} 条操作到数据库`
-                    });
-                }
+                // 提交事务
+                await this.connection.execute('COMMIT');
+            } catch (error) {
+                // 回滚事务
+                await this.connection.execute('ROLLBACK');
+                throw error;
             }
 
             return true;

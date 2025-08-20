@@ -235,19 +235,14 @@
                             <label class="form-label">结束时间</label>
                             <input type="text" class="form-control" id="endTime" placeholder="选择结束时间">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label class="form-label">&nbsp;</label>
                             <div>
-                                <button class="btn btn-primary" onclick="analyzer.applyTimeFilter()">
-                                    <i class="fas fa-filter"></i> 应用时间筛选
+                                <button class="btn btn-outline-primary" id="timeFilterToggle" onclick="analyzer.toggleTimeFilter()">
+                                    <i class="fas fa-clock"></i> 启用时间筛选
                                 </button>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">&nbsp;</label>
-                            <div>
-                                <button class="btn btn-outline-secondary" onclick="analyzer.clearTimeFilter()">
-                                    <i class="fas fa-times"></i> 清除筛选
+                                <button class="btn btn-outline-secondary ms-2" onclick="analyzer.resetTimeRange()">
+                                    <i class="fas fa-refresh"></i> 重置时间范围
                                 </button>
                             </div>
                         </div>
