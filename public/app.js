@@ -119,13 +119,7 @@ class BinlogAnalyzer {
         const formData = new FormData();
         formData.append('binlogFile', file);
 
-        const progressContainer = document.getElementById('uploadProgress');
         const uploadSection = document.getElementById('uploadSection');
-        
-        // 获取两段式进度条元素
-        const parseProgressBar = document.getElementById('parseProgressBar');
-        const saveProgressBar = document.getElementById('saveProgressBar');
-        const progressOverlay = document.getElementById('progressOverlay');
         
         // 创建或获取进度文本元素
         let progressText = document.querySelector('#uploadProgress .progress-text');
@@ -153,10 +147,6 @@ class BinlogAnalyzer {
         if (doraemonIcon) {
             doraemonIcon.classList.remove('d-none');
         }
-        progressContainer.classList.remove('d-none');
-        parseProgressBar.style.width = '0%';
-        saveProgressBar.style.width = '0%';
-        progressOverlay.textContent = '0%';
         progressText.textContent = '正在上传文件...';
         progressDetails.textContent = '初始化中...';
 
@@ -220,8 +210,6 @@ class BinlogAnalyzer {
             clearInterval(uploadInterval);
             
             // 显示上传完成，开始解析
-            parseProgressBar.style.width = '10%';
-            progressOverlay.textContent = '10%';
             progressText.textContent = '上传完成，开始解析...';
             progressDetails.textContent = '正在解析binlog文件...';
             
@@ -234,23 +222,9 @@ class BinlogAnalyzer {
                         // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                        parseProgressBar.style.width = '50%';
-                        saveProgressBar.style.width = '50%';
-                        progressOverlay.textContent = '100%';
                         progressText.textContent = '解析完成！';
                         progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
                         eventSource.close();
-                        
-                        setTimeout(() => {
-                            const progressContainer = document.getElementById('uploadProgress');
-                            const uploadSection = document.getElementById('uploadSection');
-                            if (progressContainer) {
-                                progressContainer.classList.add('d-none');
-                            }
-                            if (uploadSection) {
-                                uploadSection.style.display = 'block';
-                            }
-                        }, 2000);
                     }
                 }, 8000);
                 
@@ -268,9 +242,6 @@ class BinlogAnalyzer {
                 
                 this.showNotification(message, 'success');
             } else {
-                parseProgressBar.style.width = '50%';
-                parseProgressBar.classList.add('bg-danger');
-                progressOverlay.textContent = '失败';
                 progressText.textContent = '解析失败';
                 progressDetails.textContent = result.error;
                 this.showNotification('解析失败: ' + result.error, 'error');
@@ -1340,66 +1311,12 @@ class BinlogAnalyzer {
     }
 
     updateProgress(data, progressBar, progressOverlay, progressText, progressDetails) {
-        const parseProgressBar = document.getElementById('parseProgressBar');
-        const saveProgressBar = document.getElementById('saveProgressBar');
-        
-        switch (data.type) {
-            case 'parsing':
-                // 解析阶段：使用日志流中的实际进度值，映射到50%
-                const parseProgress = Math.min(data.progress * 0.5, 50);
-                parseProgressBar.style.width = parseProgress + '%';
-                progressOverlay.textContent = data.progress.toFixed(1) + '%';
-                progressText.textContent = data.stage;
-                progressDetails.textContent = data.message;
-                break;
-                
-            case 'parsed':
-                // 解析完成：解析进度条达到50%
-                parseProgressBar.style.width = '50%';
-                parseProgressBar.classList.remove('progress-bar-animated');
-                progressOverlay.textContent = '100%';
-                progressText.textContent = data.stage;
-                progressDetails.textContent = data.message;
-                break;
-                
-            case 'extracting':
-                // 提取阶段保持100%
-                parseProgressBar.style.width = '50%';
-                progressOverlay.textContent = '100%';
-                progressText.textContent = data.stage;
-                progressDetails.textContent = data.message;
-                break;
-                
-            case 'saving':
-                // 保存阶段：使用日志流中的实际进度值，映射到后50%
-                const saveProgress = Math.min(data.progress * 0.5, 50);
-                saveProgressBar.style.width = saveProgress + '%';
-                saveProgressBar.classList.add('progress-bar-animated');
-                progressOverlay.textContent = data.progress.toFixed(1) + '%';
-                progressText.textContent = data.stage;
-                progressDetails.textContent = data.message;
-                break;
-                
-            case 'complete':
-                // 完成：两个进度条都达到50%，总计100%
-                parseProgressBar.style.width = '50%';
-                saveProgressBar.style.width = '50%';
-                saveProgressBar.classList.remove('progress-bar-animated');
-                progressOverlay.textContent = '100%';
-                progressText.textContent = data.message;
-                progressDetails.textContent = `共找到 ${data.total.toLocaleString()} 个操作`;
-                
-                setTimeout(() => {
-                    const progressContainer = document.getElementById('uploadProgress');
-                    const uploadSection = document.getElementById('uploadSection');
-                    if (progressContainer) {
-                        progressContainer.classList.add('d-none');
-                    }
-                    if (uploadSection) {
-                        uploadSection.style.display = 'block';
-                    }
-                }, 2000);
-                break;
+        // 简化版本，只更新文本信息
+        if (progressText) {
+            progressText.textContent = data.stage || data.message || '处理中...';
+        }
+        if (progressDetails) {
+            progressDetails.textContent = data.message || '';
         }
     }
 
@@ -1454,8 +1371,6 @@ class BinlogAnalyzer {
             
             setTimeout(() => {
                 uploadSection.style.display = 'none';
-                // 在标题下方添加居中的重新上传按钮
-                this.addReuploadButton();
                 // 滚动到统计信息区域
                 const statsSection = document.getElementById('statsSection');
                 if (statsSection) {
@@ -1465,41 +1380,7 @@ class BinlogAnalyzer {
         }
     }
     
-    addReuploadButton() {
-        const titleContainer = document.querySelector('.row .col-12');
-        if (titleContainer && !document.getElementById('reuploadBtn')) {
-            // 创建居中的按钮容器
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'text-center my-3';
-            
-            const reuploadBtn = document.createElement('button');
-            reuploadBtn.id = 'reuploadBtn';
-            reuploadBtn.className = 'btn btn-primary btn-lg';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1.1rem; font-weight: 600; padding: 10px 25px; border-radius: 8px;';
-            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传文件';
-            reuploadBtn.onmouseover = () => {
-                reuploadBtn.style.transform = 'translateY(-2px)';
-                reuploadBtn.style.boxShadow = '0 4px 12px rgba(0,123,255,0.4)';
-            };
-            reuploadBtn.onmouseout = () => {
-                reuploadBtn.style.transform = 'translateY(0)';
-                reuploadBtn.style.boxShadow = '0 2px 8px rgba(0,123,255,0.3)';
-            };
-            reuploadBtn.onclick = () => {
-                // 直接刷新页面回到初始状态
-                window.location.reload();
-            };
-            
-            buttonContainer.appendChild(reuploadBtn);
-            // 插入到标题下方居中显示
-            const titleRow = titleContainer.querySelector('.d-flex');
-            if (titleRow) {
-                titleRow.insertAdjacentElement('afterend', buttonContainer);
-            } else {
-                titleContainer.appendChild(buttonContainer);
-            }
-        }
-    }
+
     
     showUploadSection() {
         const uploadSection = document.querySelector('.row.mb-4');
