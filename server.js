@@ -160,6 +160,8 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   let currentSection = null; // 'SET' 或 'WHERE'
   let processedLines = 0;
   let operationTimestamp = null; // 为当前操作保留的时间戳
+  let currentXid = null; // 当前事务ID
+  let currentGtid = null; // 当前GTID
   
   console.log(`开始解析 ${totalLines} 行binlog输出...`);
   
@@ -207,6 +209,22 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       }
     }
 
+    // 解析事务ID (Xid)
+    if (line.includes('Xid = ')) {
+      const xidMatch = line.match(/Xid = (\d+)/);
+      if (xidMatch) {
+        currentXid = xidMatch[1];
+      }
+    }
+    
+    // 解析GTID
+    if (line.includes('GTID') && line.includes('=')) {
+      const gtidMatch = line.match(/GTID\s*=\s*([^\s,]+)/);
+      if (gtidMatch) {
+        currentGtid = gtidMatch[1];
+      }
+    }
+    
     // 解析时间戳 - 支持多种格式
     if (line.startsWith('#') && line.includes('server id')) {
       // 匹配各种可能的时间戳格式
@@ -366,6 +384,8 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         table: tableMatch ? tableMatch[3] : 'unknown',
         timestamp: operationTimestamp, // 使用创建时的时间戳快照
         serverId: currentServerId,
+        xid: currentXid, // 事务ID
+        gtid: currentGtid, // GTID
         setValues: [],      // UPDATE操作的新值
         whereConditions: [], // WHERE条件（旧值）
         values: [],         // INSERT/DELETE的值
@@ -830,20 +850,39 @@ function filterAndSortOperations(operations, options) {
     filtered = filtered.filter(op => op.table === filters.table);
   }
   if (filters.startTime) {
-    filtered = filtered.filter(op => op.timestamp >= filters.startTime);
+    filtered = filtered.filter(op => {
+      if (!op.timestamp) return false;
+      return op.timestamp >= filters.startTime;
+    });
   }
   if (filters.endTime) {
-    filtered = filtered.filter(op => op.timestamp <= filters.endTime);
+    filtered = filtered.filter(op => {
+      if (!op.timestamp) return false;
+      return op.timestamp <= filters.endTime;
+    });
   }
 
   // 排序
   filtered.sort((a, b) => {
-    let aVal = a[sortBy];
-    let bVal = b[sortBy];
+    let aVal, bVal;
     
-    if (sortBy === 'timestamp') {
-      aVal = new Date(aVal || '1970-01-01');
-      bVal = new Date(bVal || '1970-01-01');
+    // 字段映射
+    switch(sortBy) {
+      case 'database_name':
+        aVal = a.database;
+        bVal = b.database;
+        break;
+      case 'table_name':
+        aVal = a.table;
+        bVal = b.table;
+        break;
+      case 'timestamp':
+        aVal = new Date(a.timestamp || '1970-01-01');
+        bVal = new Date(b.timestamp || '1970-01-01');
+        break;
+      default:
+        aVal = a[sortBy];
+        bVal = b[sortBy];
     }
     
     if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;

@@ -819,6 +819,8 @@ class BinlogAnalyzer {
             
             const formattedTime = this.formatTimestamp(op.timestamp);
             
+            const transactionId = op.xid ? `Xid:${op.xid}` : (op.gtid ? `GTID:${op.gtid}` : 'N/A');
+            
             row.innerHTML = `
                 <td>${formattedTime}</td>
                 <td>
@@ -826,6 +828,7 @@ class BinlogAnalyzer {
                 </td>
                 <td>${op.database}</td>
                 <td>${op.table}</td>
+                <td><small>${transactionId}</small></td>
                 <td>${op.serverId || 'N/A'}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${pageIndex})">
@@ -1041,11 +1044,14 @@ class BinlogAnalyzer {
                         </div>
                         <div class="modal-body">
                             <div class="row mb-3">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <strong>时间:</strong> ${this.formatTimestamp(operation.timestamp)}
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <strong>服务器ID:</strong> ${operation.serverId || 'N/A'}
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>事务ID:</strong> ${operation.xid ? `Xid:${operation.xid}` : (operation.gtid ? `GTID:${operation.gtid}` : 'N/A')}
                                 </div>
                             </div>
                             <div class="row mb-3">
