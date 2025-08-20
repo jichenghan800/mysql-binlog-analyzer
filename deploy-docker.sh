@@ -149,7 +149,7 @@ case $choice in
     1)
         SERVICE_NAME="app"
         BUILD_TARGET="app"
-        PROFILE_FLAG=""
+        PROFILE_FLAG="--profile memory-only"
         CHECK_PORT=5000
         ;;
     2)
@@ -162,7 +162,7 @@ case $choice in
         log_error "无效选择，默认使用内存存储模式"
         SERVICE_NAME="app"
         BUILD_TARGET="app"
-        PROFILE_FLAG=""
+        PROFILE_FLAG="--profile memory-only"
         CHECK_PORT=5000
         ;;
 esac
@@ -208,7 +208,7 @@ log_info "开始构建镜像（只构建选择的服务）..."
 echo "=== Docker构建输出 ==="
 if [ "$choice" = "1" ]; then
     log_info "构建内存存储模式服务..."
-    if ! docker-compose build --no-cache --pull --force-rm app; then
+    if ! docker-compose $PROFILE_FLAG build --no-cache --pull --force-rm; then
         log_error "构建失败！请检查上面的错误信息"
         exit 1
     fi
@@ -238,7 +238,7 @@ log_info "步骤9: 启动服务..."
 case $choice in
     1)
         log_info "启动内存存储模式..."
-        docker-compose up -d app
+        docker-compose --profile memory-only up -d
         ;;
     2)
         log_info "启动数据库存储模式..."
