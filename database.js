@@ -38,8 +38,6 @@ class DatabaseManager {
                 table_name VARCHAR(64) NOT NULL,
                 timestamp DATETIME,
                 server_id INT,
-                xid VARCHAR(32),
-                gtid VARCHAR(128),
                 set_values JSON,
                 where_conditions JSON,
                 operation_values JSON,
@@ -48,12 +46,41 @@ class DatabaseManager {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_session (session_id),
                 INDEX idx_timestamp (timestamp),
-                INDEX idx_type (type),
-                INDEX idx_xid (xid)
+                INDEX idx_type (type)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         `;
         
         await this.connection.execute(createTableSQL);
+        
+        // 检查并添加新字段
+        await this.upgradeTableSchema();
+    }
+    
+    async upgradeTableSchema() {
+        try {
+            // 检查xid字段是否存在
+            const [xidColumns] = await this.connection.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'binlog_operations' AND COLUMN_NAME = 'xid'"
+            );
+            
+            if (xidColumns.length === 0) {
+                console.log('添加xid字段...');
+                await this.connection.execute('ALTER TABLE binlog_operations ADD COLUMN xid VARCHAR(32) AFTER server_id');
+                await this.connection.execute('ALTER TABLE binlog_operations ADD INDEX idx_xid (xid)');
+            }
+            
+            // 检查gtid字段是否存在
+            const [gtidColumns] = await this.connection.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'binlog_operations' AND COLUMN_NAME = 'gtid'"
+            );
+            
+            if (gtidColumns.length === 0) {
+                console.log('添加gtid字段...');
+                await this.connection.execute('ALTER TABLE binlog_operations ADD COLUMN gtid VARCHAR(128) AFTER xid');
+            }
+        } catch (error) {
+            console.error('表结构升级失败:', error);
+        }
     }
 
     async saveOperations(sessionId, operations, progressSessionId = null) {
