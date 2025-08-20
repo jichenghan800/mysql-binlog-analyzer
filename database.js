@@ -425,6 +425,21 @@ class DatabaseManager {
         }
     }
 
+    async truncateTable() {
+        if (!this.useDatabase || !this.connection) {
+            return false;
+        }
+
+        try {
+            await this.connection.execute('TRUNCATE TABLE binlog_operations');
+            console.log('已清空 binlog_operations 表');
+            return true;
+        } catch (error) {
+            console.error('清空表失败:', error);
+            return false;
+        }
+    }
+
     generateSessionId() {
         return Date.now().toString() + Math.random().toString(36).substr(2, 9);
     }

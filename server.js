@@ -709,6 +709,9 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     const shouldUseDatabase = dbManager.useDatabase || (isDocker && operations.length > 100);
     
     if (shouldUseDatabase && operations.length > 0) {
+      // 先清空表数据，避免表满错误
+      await dbManager.truncateTable();
+      
       sessionId = dbManager.generateSessionId();
       const saved = await dbManager.saveOperations(sessionId, operations, progressSessionId);
       if (saved) {
