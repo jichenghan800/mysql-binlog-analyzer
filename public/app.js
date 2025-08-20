@@ -143,8 +143,9 @@ class BinlogAnalyzer {
         }
         
         // 隐藏上传区域，显示进度条
-        if (uploadSection) {
-            uploadSection.style.display = 'none';
+        const uploadArea = document.getElementById('uploadArea');
+        if (uploadArea) {
+            uploadArea.style.display = 'none';
         }
         // 显示机器猫图标
         const doraemonIcon = document.getElementById('doraemonIcon');
@@ -159,6 +160,7 @@ class BinlogAnalyzer {
 
         let eventSource = null;
         let uploadProgress = 0;
+        let isUploadComplete = false;
         
         try {
             
@@ -191,14 +193,15 @@ class BinlogAnalyzer {
             
             // 初始上传进度模拟
             const uploadInterval = setInterval(() => {
-                uploadProgress += Math.random() * 8;
-                if (uploadProgress > 20) {
-                    uploadProgress = 20;
-                    clearInterval(uploadInterval);
+                if (!isUploadComplete) {
+                    uploadProgress += Math.random() * 5;
+                    if (uploadProgress > 15) {
+                        uploadProgress = 15;
+                    }
+                    progressBar.style.width = uploadProgress + '%';
+                    progressOverlay.textContent = uploadProgress.toFixed(1) + '%';
+                    progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
                 }
-                progressBar.style.width = uploadProgress + '%';
-                progressOverlay.textContent = uploadProgress.toFixed(1) + '%';
-                progressDetails.textContent = `上传进度: ${uploadProgress.toFixed(1)}%`;
             }, 200);
             
             // 在 formData 中添加 progressSessionId
@@ -210,7 +213,15 @@ class BinlogAnalyzer {
                 body: formData
             });
 
+            // 标记上传完成，开始解析阶段
+            isUploadComplete = true;
             clearInterval(uploadInterval);
+            
+            // 显示上传完成，开始解析
+            progressBar.style.width = '20%';
+            progressOverlay.textContent = '20%';
+            progressText.textContent = '上传完成，开始解析...';
+            progressDetails.textContent = '正在解析binlog文件...';
             
             const result = await response.json();
             const endTime = Date.now();
@@ -1476,6 +1487,7 @@ class BinlogAnalyzer {
             const doraemonIcon = document.getElementById('doraemonIcon');
             const progressContainer = document.getElementById('uploadProgress');
             const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
             
             // 隐藏解析中图标和进度条
             if (doraemonIcon) {
@@ -1483,6 +1495,10 @@ class BinlogAnalyzer {
             }
             if (progressContainer) {
                 progressContainer.classList.add('d-none');
+            }
+            // 显示上传区域
+            if (uploadArea) {
+                uploadArea.style.display = 'block';
             }
             // 清空文件选择
             if (fileInput) {
