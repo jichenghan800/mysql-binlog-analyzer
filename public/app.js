@@ -1005,7 +1005,7 @@ class BinlogAnalyzer {
                 
                 originalPatterns.forEach(pattern => {
                     highlightedOriginal = highlightedOriginal.replace(pattern, 
-                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>$2`);
+                        (match, p1, p2) => `${p1}<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>${p2 || ''}`);
                 });
                 
                 // 高亮回滚SQL中的值（红色背景）
@@ -1017,7 +1017,7 @@ class BinlogAnalyzer {
                 
                 reversePatterns.forEach(pattern => {
                     highlightedReverse = highlightedReverse.replace(pattern, 
-                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>$2`);
+                        (match, p1, p2) => `${p1}<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>${p2 || ''}`);
                 });
             }
         });
@@ -1186,7 +1186,7 @@ class BinlogAnalyzer {
                                                 <span class="badge bg-success ms-2" style="font-size: 0.7em;">新值</span>
                                             </label>
                                             <div class="bg-light p-3 rounded" style="border-left: 4px solid #28a745;">
-                                                <code style="white-space: pre-wrap; word-break: break-all;">${highlightedSQL.original}</code>
+                                                <code style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;">${highlightedSQL.original}</code>
                                             </div>
                                             <button class="btn btn-sm btn-outline-primary mt-2" onclick="analyzer.copyToClipboard('${operation.originalSQL?.replace(/'/g, "\\'")}')">
                                                 <i class="fas fa-copy"></i> 复制原始SQL
@@ -1198,7 +1198,7 @@ class BinlogAnalyzer {
                                                 <span class="badge bg-danger ms-2" style="font-size: 0.7em;">旧值</span>
                                             </label>
                                             <div class="bg-light p-3 rounded" style="border-left: 4px solid #dc3545;">
-                                                <code style="white-space: pre-wrap; word-break: break-all;">${highlightedSQL.reverse}</code>
+                                                <code style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;">${highlightedSQL.reverse}</code>
                                             </div>
                                             <button class="btn btn-sm btn-outline-warning mt-2" onclick="analyzer.copyToClipboard('${operation.reverseSQL?.replace(/'/g, "\\'")}')">
                                                 <i class="fas fa-copy"></i> 复制回滚SQL
