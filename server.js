@@ -94,7 +94,7 @@ function parseBinlog(filePath, progressSessionId = null) {
       return;
     }
     
-    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析（使用--base64-output=never --disable-log-bin -v参数）...');
+    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析（使用--base64-output=DECODE-ROWS --disable-log-bin -v参数）...');
     
     // Docker环境检测
     const isDocker = fs.existsSync('/.dockerenv');
@@ -102,9 +102,9 @@ function parseBinlog(filePath, progressSessionId = null) {
       console.log('检测到Docker环境，使用优化配置...');
     }
     
-    // 使用mysqlbinlog工具解析，使用--base64-output=never和--disable-log-bin参数
+    // 使用mysqlbinlog工具解析，使用DECODE-ROWS正确处理行事件
     const mysqlbinlog = spawn('mysqlbinlog', [
-      '--base64-output=never',
+      '--base64-output=DECODE-ROWS',
       '--disable-log-bin',
       '-v',
       filePath
@@ -483,7 +483,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   }
 
   console.log(`解析完成，共找到 ${operations.length} 个操作`);
-  console.log(`使用了 mysqlbinlog --base64-output=never --disable-log-bin -v 参数`);
+  console.log(`使用了 mysqlbinlog --base64-output=DECODE-ROWS --disable-log-bin -v 参数`);
   
   // 发送解析完成消息
   if (progressSessionId) {
