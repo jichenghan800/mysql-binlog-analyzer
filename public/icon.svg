@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="60" height="60">
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2196F3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 机器人头部 -->
+  <circle cx="50" cy="35" r="25" fill="url(#gradient)" stroke="#333" stroke-width="2"/>
+  
+  <!-- 眼睛 -->
+  <circle cx="42" cy="30" r="4" fill="#fff"/>
+  <circle cx="58" cy="30" r="4" fill="#fff"/>
+  <circle cx="42" cy="30" r="2" fill="#333"/>
+  <circle cx="58" cy="30" r="2" fill="#333"/>
+  
+  <!-- 嘴巴 -->
+  <path d="M 40 42 Q 50 48 60 42" stroke="#333" stroke-width="2" fill="none"/>
+  
+  <!-- 身体 -->
+  <rect x="35" y="55" width="30" height="35" rx="5" fill="url(#gradient)" stroke="#333" stroke-width="2"/>
+  
+  <!-- 胸前指示灯 -->
+  <circle cx="50" cy="70" r="5" fill="#FF5722">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- 手臂 -->
+  <rect x="25" y="60" width="8" height="20" rx="4" fill="url(#gradient)" stroke="#333" stroke-width="1"/>
+  <rect x="67" y="60" width="8" height="20" rx="4" fill="url(#gradient)" stroke="#333" stroke-width="1"/>
+  
+  <!-- 天线 -->
+  <line x1="50" y1="10" x2="50" y2="20" stroke="#333" stroke-width="2"/>
+  <circle cx="50" cy="8" r="3" fill="#FF5722">
+    <animate attributeName="fill" values="#FF5722;#FFC107;#FF5722" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- 旋转动画 -->
+  <animateTransform attributeName="transform" type="rotate" values="0 50 50;360 50 50" dur="3s" repeatCount="indefinite"/>
+</svg>

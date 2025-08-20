@@ -943,16 +943,27 @@ class BinlogAnalyzer {
             };
         }
 
-        // 提取SQL中的字段=值对
+        // 更强大的字段值提取函数，支持引号、特殊字符等
         const extractFieldValues = (sql) => {
             const fieldValues = new Map();
-            const matches = sql.match(/(\w+)\s*=\s*([^,\s)]+)/g);
-            if (matches) {
-                matches.forEach(match => {
-                    const [field, value] = match.split('=').map(s => s.trim());
-                    fieldValues.set(field, value);
-                });
-            }
+            // 匹配 field = value 模式，支持引号包围的值
+            const patterns = [
+                /(\w+)\s*=\s*'([^']*)'/g,  // 单引号字符串
+                /(\w+)\s*=\s*"([^"]*)"/g,  // 双引号字符串
+                /(\w+)\s*=\s*([^,\s)]+)/g   // 无引号值
+            ];
+            
+            patterns.forEach(pattern => {
+                let match;
+                while ((match = pattern.exec(sql)) !== null) {
+                    const field = match[1].trim();
+                    const value = match[2].trim();
+                    if (!fieldValues.has(field)) {
+                        fieldValues.set(field, value);
+                    }
+                }
+            });
+            
             return fieldValues;
         };
 
@@ -962,24 +973,52 @@ class BinlogAnalyzer {
         let highlightedOriginal = originalSQL;
         let highlightedReverse = reverseSQL;
 
-        // 只高亮真正不同的值
+        // 找出所有不同的字段值对
+        const differentFields = new Set();
+        
         originalFields.forEach((value, field) => {
             const reverseValue = reverseFields.get(field);
             if (reverseValue && value !== reverseValue) {
-                // 高亮原始SQL中的不同值（绿色背景）
-                const regex = new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)(${this.escapeRegex(value)})`, 'g');
-                highlightedOriginal = highlightedOriginal.replace(regex, 
-                    `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold;">$2</span>`);
+                differentFields.add(field);
             }
         });
-
+        
         reverseFields.forEach((value, field) => {
             const originalValue = originalFields.get(field);
             if (originalValue && value !== originalValue) {
-                // 高亮回滚SQL中的不同值（红色背景）
-                const regex = new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)(${this.escapeRegex(value)})`, 'g');
-                highlightedReverse = highlightedReverse.replace(regex, 
-                    `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold;">$2</span>`);
+                differentFields.add(field);
+            }
+        });
+
+        // 高亮不同的值
+        differentFields.forEach(field => {
+            const originalValue = originalFields.get(field);
+            const reverseValue = reverseFields.get(field);
+            
+            if (originalValue && reverseValue && originalValue !== reverseValue) {
+                // 高亮原始SQL中的值（绿色背景）
+                const originalPatterns = [
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*')${this.escapeRegex(originalValue)}(')`,'gi'),
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*")${this.escapeRegex(originalValue)}(")`,'gi'),
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)${this.escapeRegex(originalValue)}(?=[,\\s)]|$)`,'gi')
+                ];
+                
+                originalPatterns.forEach(pattern => {
+                    highlightedOriginal = highlightedOriginal.replace(pattern, 
+                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>$2`);
+                });
+                
+                // 高亮回滚SQL中的值（红色背景）
+                const reversePatterns = [
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*')${this.escapeRegex(reverseValue)}(')`,'gi'),
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*")${this.escapeRegex(reverseValue)}(")`,'gi'),
+                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)${this.escapeRegex(reverseValue)}(?=[,\\s)]|$)`,'gi')
+                ];
+                
+                reversePatterns.forEach(pattern => {
+                    highlightedReverse = highlightedReverse.replace(pattern, 
+                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>$2`);
+                });
             }
         });
 
@@ -991,7 +1030,8 @@ class BinlogAnalyzer {
 
     // 转义正则表达式特殊字符
     escapeRegex(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!string) return '';
+        return string.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     // 排序方法
@@ -1408,7 +1448,7 @@ class BinlogAnalyzer {
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
             reuploadBtn.className = 'btn btn-primary';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease;';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1rem; margin-left: 15px;';
             reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
             reuploadBtn.onmouseover = () => {
                 reuploadBtn.style.transform = 'translateY(-2px)';
@@ -1419,13 +1459,36 @@ class BinlogAnalyzer {
                 reuploadBtn.style.boxShadow = '0 2px 8px rgba(0,123,255,0.3)';
             };
             reuploadBtn.onclick = () => this.showUploadSection();
-            titleRow.insertBefore(reuploadBtn, titleRow.lastElementChild);
+            // 插入到标题和帮助按钮之间
+            const helpButton = titleRow.querySelector('a[href="help.html"]');
+            if (helpButton) {
+                titleRow.insertBefore(reuploadBtn, helpButton);
+            } else {
+                titleRow.appendChild(reuploadBtn);
+            }
         }
     }
     
     showUploadSection() {
         const uploadSection = document.querySelector('.row.mb-4');
         if (uploadSection) {
+            // 重置上传区域状态
+            const doraemonIcon = document.getElementById('doraemonIcon');
+            const progressContainer = document.getElementById('uploadProgress');
+            const fileInput = document.getElementById('fileInput');
+            
+            // 隐藏解析中图标和进度条
+            if (doraemonIcon) {
+                doraemonIcon.classList.add('d-none');
+            }
+            if (progressContainer) {
+                progressContainer.classList.add('d-none');
+            }
+            // 清空文件选择
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            
             uploadSection.style.display = 'block';
             uploadSection.style.opacity = '0';
             uploadSection.style.transform = 'translateY(-20px)';
