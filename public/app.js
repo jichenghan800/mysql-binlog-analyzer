@@ -125,12 +125,21 @@ class BinlogAnalyzer {
         const progressBar = document.querySelector('#uploadProgress .progress-bar');
         const progressContainer = document.getElementById('uploadProgress');
         const uploadSection = document.getElementById('uploadSection');
-        const progressText = document.querySelector('#uploadProgress .progress-text') || 
-                           document.createElement('div');
         
-        if (!progressText.classList.contains('progress-text')) {
-            progressText.className = 'progress-text text-center mt-2';
+        // 创建或获取进度文本元素
+        let progressText = document.querySelector('#uploadProgress .progress-text');
+        if (!progressText) {
+            progressText = document.createElement('div');
+            progressText.className = 'progress-text text-center mt-3 mb-2';
             progressContainer.appendChild(progressText);
+        }
+        
+        // 创建或获取进度详情元素
+        let progressDetails = document.querySelector('#uploadProgress .progress-details');
+        if (!progressDetails) {
+            progressDetails = document.createElement('div');
+            progressDetails.className = 'progress-details text-center text-muted small mt-2';
+            progressContainer.appendChild(progressDetails);
         }
         
         // 隐藏上传区域，显示进度条
@@ -139,26 +148,44 @@ class BinlogAnalyzer {
         }
         progressContainer.classList.remove('d-none');
         progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
         progressText.textContent = '正在上传文件...';
+        progressDetails.textContent = '初始化中...';
 
         try {
             let progress = 0;
             let stage = 'upload';
+            let processedLines = 0;
+            let totalLines = 0;
             
             const progressInterval = setInterval(() => {
                 if (stage === 'upload') {
-                    progress += Math.random() * 20;
-                    if (progress > 70) {
-                        progress = 70;
+                    progress += Math.random() * 15;
+                    if (progress > 60) {
+                        progress = 60;
                         stage = 'parse';
                         progressText.textContent = '正在解析binlog文件...';
+                        progressDetails.textContent = '正在读取文件内容...';
+                    } else {
+                        progressDetails.textContent = `上传进度: ${progress.toFixed(1)}%`;
                     }
                 } else if (stage === 'parse') {
-                    progress += Math.random() * 5;
-                    if (progress > 90) progress = 90;
+                    progress += Math.random() * 3;
+                    if (progress > 85) progress = 85;
+                    
+                    // 模拟解析进度
+                    if (totalLines === 0) {
+                        totalLines = Math.floor(Math.random() * 10000) + 1000; // 模拟总行数
+                    }
+                    processedLines = Math.floor((progress - 60) / 25 * totalLines);
+                    if (processedLines > totalLines) processedLines = totalLines;
+                    
+                    progressDetails.textContent = `已处理: ${processedLines.toLocaleString()} / ${totalLines.toLocaleString()} 行`;
                 }
+                
                 progressBar.style.width = progress + '%';
-            }, 500);
+                progressBar.textContent = progress.toFixed(1) + '%';
+            }, 300);
 
             const startTime = Date.now();
             const response = await fetch('/upload', {
@@ -167,14 +194,18 @@ class BinlogAnalyzer {
             });
 
             clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressText.textContent = '解析完成！';
-
+            
             const result = await response.json();
             const endTime = Date.now();
             const duration = ((endTime - startTime) / 1000).toFixed(1);
 
             if (result.success) {
+                // 显示最终结果
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                progressText.textContent = '解析完成！';
+                progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
+                
                 this.operations = result.operations;
                 this.displayResults();
                 
@@ -185,6 +216,10 @@ class BinlogAnalyzer {
                 
                 this.showNotification(message, 'success');
             } else {
+                progressBar.style.width = '100%';
+                progressBar.textContent = '失败';
+                progressText.textContent = '解析失败';
+                progressDetails.textContent = result.error;
                 this.showNotification('解析失败: ' + result.error, 'error');
             }
         } catch (error) {
@@ -202,7 +237,10 @@ class BinlogAnalyzer {
         } finally {
             setTimeout(() => {
                 progressContainer.classList.add('d-none');
-            }, 2000);
+                if (uploadSection) {
+                    uploadSection.style.display = 'block';
+                }
+            }, 3000);
         }
     }
 
