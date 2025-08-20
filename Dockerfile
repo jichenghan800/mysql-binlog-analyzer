@@ -1,15 +1,12 @@
+                                                                                                                                   Dockerfile                                                                                                                                                   
 FROM node:18-slim
 
-# 安装MySQL官方客户端工具
+# 安装MySQL客户端工具（使用Ubuntu官方源）
 RUN apt-get update && \
-    apt-get install -y wget gnupg lsb-release && \
-    wget https://dev.mysql.com/get/mysql-apt-config_0.8.29-1_all.deb && \
-    DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.29-1_all.deb && \
-    apt-get update && \
-    apt-get install -y mysql-client && \
-    rm mysql-apt-config_0.8.29-1_all.deb && \
+    apt-get install -y mysql-server-core-8.0 && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    which mysqlbinlog && mysqlbinlog --version
 
 # 设置工作目录
 WORKDIR /app
@@ -32,3 +29,4 @@ EXPOSE 3000
 # 设置Node.js内存限制并启动应用
 ENV NODE_OPTIONS="--max-old-space-size=16384"
 ENTRYPOINT ["node", "server.js"]
+
