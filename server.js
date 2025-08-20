@@ -526,8 +526,14 @@ function generateUpdateSQL(tableName, setValues, whereConditions) {
   const fieldsToUpdate = changedFields.length > 0 ? changedFields : setValues;
   
   const setPart = fieldsToUpdate.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(', ');
-  const wherePart = whereConditions && whereConditions.length > 0 
-    ? whereConditions.map(w => `col_${w.column} = ${formatValue(w.value)}`).join(' AND ')
+  
+  // 简化WHERE条件：只使用前3个字段作为主键条件
+  const keyFields = whereConditions && whereConditions.length > 0 
+    ? whereConditions.slice(0, Math.min(3, whereConditions.length))
+    : [];
+  
+  const wherePart = keyFields.length > 0
+    ? keyFields.map(w => `col_${w.column} = ${formatValue(w.value)}`).join(' AND ')
     : '1=1';
   
   return `UPDATE ${tableName} SET ${setPart} WHERE ${wherePart};`;
@@ -540,15 +546,10 @@ function generateReverseUpdateSQL(tableName, setValues, whereConditions) {
   // 找出实际发生变化的字段
   const changedFields = [];
   const whereMap = new Map();
-  const setMap = new Map();
   
   // 创建映射
   whereConditions.forEach(w => {
     whereMap.set(w.column, w.value);
-  });
-  
-  setValues.forEach(s => {
-    setMap.set(s.column, s.value);
   });
   
   // 找出变化的字段，回滚时SET旧值
@@ -560,10 +561,13 @@ function generateReverseUpdateSQL(tableName, setValues, whereConditions) {
   });
   
   // 如果没有找到变化的字段，使用WHERE条件作为SET
-  const fieldsToRevert = changedFields.length > 0 ? changedFields : whereConditions;
+  const fieldsToRevert = changedFields.length > 0 ? changedFields : whereConditions.slice(0, 3);
   
   const setPart = fieldsToRevert.map(f => `col_${f.column} = ${formatValue(f.value)}`).join(', ');
-  const wherePart = setValues.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(' AND ');
+  
+  // 简化WHERE条件：只使用前3个字段作为主键条件
+  const keyFields = setValues.slice(0, Math.min(3, setValues.length));
+  const wherePart = keyFields.map(v => `col_${v.column} = ${formatValue(v.value)}`).join(' AND ');
   
   return `UPDATE ${tableName} SET ${setPart} WHERE ${wherePart};`;
 }
@@ -572,26 +576,31 @@ function generateReverseUpdateSQL(tableName, setValues, whereConditions) {
 function generateDeleteSQL(tableName, conditions) {
   if (!conditions || conditions.length === 0) return '';
   
-  const wherePart = conditions.map(c => `col_${c.column} = ${formatValue(c.value)}`).join(' AND ');
+  // 简化WHERE条件：只使用前3个字段作为主键条件
+  const keyFields = conditions.slice(0, Math.min(3, conditions.length));
+  const wherePart = keyFields.map(c => `col_${c.column} = ${formatValue(c.value)}`).join(' AND ');
   
   return `DELETE FROM ${tableName} WHERE ${wherePart};`;
 }
 
 // 格式化值
 function formatValue(value) {
-  if (value === null || value === 'NULL') {
+  if (value === null || value === 'NULL' || value === undefined) {
     return 'NULL';
   }
   
-  // 移除引号并重新添加适当的引号
-  const cleanValue = value.toString().replace(/^['"]|['"]$/g, '');
+  // 转换为字符串并清理
+  let cleanValue = value.toString().trim();
   
-  // 检查是否为数字
-  if (/^\d+(\.\d+)?$/.test(cleanValue)) {
+  // 移除已有的引号
+  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
+  
+  // 检查是否为数字（包括小数和负数）
+  if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
     return cleanValue;
   }
   
-  // 字符串值需要转义单引号
+  // 字符串值需要转义单引号并添加引号
   const escapedValue = cleanValue.replace(/'/g, "''");
   return `'${escapedValue}'`;
 }
