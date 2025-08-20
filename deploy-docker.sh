@@ -147,11 +147,10 @@ echo "请选择启动模式："
 echo "1) 内存存储模式 (适合小文件测试，端口5000)"
 echo "2) 数据库存储模式 (适合大文件生产环境，端口5000)"
 echo ""
-echo "请输入选择 (1 或 2)，10秒内无输入将自动选择数据库模式(2): "
+echo -n "请输入选择 (1 或 2)，10秒内无输入将自动选择数据库模式(2): "
 
-# 使用timeout命令实现10秒超时
-if timeout 10 bash -c 'read choice < /dev/tty && echo $choice' 2>/dev/null; then
-    choice=$(timeout 10 bash -c 'read choice < /dev/tty && echo $choice' 2>/dev/null)
+# 使用read命令的-t参数实现10秒超时
+if read -t 10 choice; then
     echo "您选择了: $choice"
 else
     choice="2"
