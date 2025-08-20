@@ -94,7 +94,7 @@ function parseBinlog(filePath, progressSessionId = null) {
       return;
     }
     
-    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析（使用-vv和--base64-output=DECODE-ROWS参数）...');
+    console.log('检测到二进制binlog文件，使用mysqlbinlog工具解析（使用-v参数和sed过滤）...');
     
     // Docker环境检测
     const isDocker = fs.existsSync('/.dockerenv');
@@ -102,11 +102,10 @@ function parseBinlog(filePath, progressSessionId = null) {
       console.log('检测到Docker环境，使用优化配置...');
     }
     
-    // 使用mysqlbinlog工具解析，添加-vv参数获得极度详细的输出，避免$占位符
-    const mysqlbinlog = spawn('mysqlbinlog', [
-      '--base64-output=DECODE-ROWS',
-      '-vv',
-      filePath
+    // 使用mysqlbinlog工具解析，使用-v参数和sed过滤获得精炼输出
+    const mysqlbinlog = spawn('sh', [
+      '-c',
+      `mysqlbinlog --base64-output=DECODE-ROWS -v "${filePath}" | sed -E 's:/\*[^*]*\*+([^/*][^*]*\*+)*/::g'`
     ]);
     let output = '';
     let error = '';
@@ -423,15 +422,9 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         let originalValue = columnMatch[2];
         let value = originalValue;
         
-        // 处理-vv参数输出的详细格式，移除类型信息和占位符
+        // 处理-v参数和sed过滤后的精炼输出
         if (value && typeof value === 'string') {
-          // 移除类型前缀，如 'INT meta=0 nullable=1 is_null=0 '
-          value = value.replace(/^[A-Z_]+\s+meta=\d+\s+nullable=[01]\s+is_null=[01]\s+/, '');
-          
-          // 移除$占位符模式，如 '$1' '$2' 等
-          value = value.replace(/^\$\d+\s*/, '');
-          
-          // 清理控制字符
+          // 清理控制字符和首尾空格
           value = value
             .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
             .trim();
@@ -488,7 +481,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   }
 
   console.log(`解析完成，共找到 ${operations.length} 个操作`);
-  console.log(`使用了 mysqlbinlog --base64-output=DECODE-ROWS -vv 参数，应该已解决$占位符问题`);
+  console.log(`使用了 mysqlbinlog --base64-output=DECODE-ROWS -v + sed 过滤，获得精炼输出`);
   
   // 发送解析完成消息
   if (progressSessionId) {
@@ -496,7 +489,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       type: 'parsed',
       stage: '解析完成',
       total: operations.length,
-      message: `解析完成，共找到 ${operations.length} 个操作（已优化占位符处理）`
+      message: `解析完成，共找到 ${operations.length} 个操作（使用精炼命令）`
     });
   }
   
