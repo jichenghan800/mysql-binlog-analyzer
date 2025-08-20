@@ -137,7 +137,7 @@ class BinlogAnalyzer {
             progressContainer.appendChild(progressDetails);
         }
         
-        // 隐藏上传区域，显示进度条
+        // 隐藏上传区域，显示解析状态
         const uploadArea = document.getElementById('uploadArea');
         if (uploadArea) {
             uploadArea.style.display = 'none';
@@ -147,8 +147,12 @@ class BinlogAnalyzer {
         if (doraemonIcon) {
             doraemonIcon.classList.remove('d-none');
         }
-        progressText.textContent = '正在上传文件...';
-        progressDetails.textContent = '初始化中...';
+        if (progressText) {
+            progressText.textContent = '正在上传文件...';
+        }
+        if (progressDetails) {
+            progressDetails.textContent = '初始化中...';
+        }
 
         let eventSource = null;
         let uploadProgress = 0;
@@ -210,8 +214,12 @@ class BinlogAnalyzer {
             clearInterval(uploadInterval);
             
             // 显示上传完成，开始解析
-            progressText.textContent = '上传完成，开始解析...';
-            progressDetails.textContent = '正在解析binlog文件...';
+            if (progressText) {
+                progressText.textContent = '上传完成，开始解析...';
+            }
+            if (progressDetails) {
+                progressDetails.textContent = '正在解析binlog文件...';
+            }
             
             const result = await response.json();
             const endTime = Date.now();
@@ -222,9 +230,21 @@ class BinlogAnalyzer {
                         // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
                     if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
-                        progressText.textContent = '解析完成！';
-                        progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
+                        if (progressText) {
+                            progressText.textContent = '解析完成！';
+                        }
+                        if (progressDetails) {
+                            progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
+                        }
                         eventSource.close();
+                        
+                        // 隐藏解析状态，显示结果
+                        setTimeout(() => {
+                            const doraemonIcon = document.getElementById('doraemonIcon');
+                            if (doraemonIcon) {
+                                doraemonIcon.classList.add('d-none');
+                            }
+                        }, 2000);
                     }
                 }, 8000);
                 
@@ -242,8 +262,12 @@ class BinlogAnalyzer {
                 
                 this.showNotification(message, 'success');
             } else {
-                progressText.textContent = '解析失败';
-                progressDetails.textContent = result.error;
+                if (progressText) {
+                    progressText.textContent = '解析失败';
+                }
+                if (progressDetails) {
+                    progressDetails.textContent = result.error;
+                }
                 this.showNotification('解析失败: ' + result.error, 'error');
             }
         } catch (error) {
@@ -1317,6 +1341,16 @@ class BinlogAnalyzer {
         }
         if (progressDetails) {
             progressDetails.textContent = data.message || '';
+        }
+        
+        // 处理完成状态
+        if (data.type === 'complete') {
+            setTimeout(() => {
+                const doraemonIcon = document.getElementById('doraemonIcon');
+                if (doraemonIcon) {
+                    doraemonIcon.classList.add('d-none');
+                }
+            }, 2000);
         }
     }
 
