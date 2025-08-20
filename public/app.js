@@ -186,11 +186,17 @@ class BinlogAnalyzer {
             if (result.success) {
                 // 建立 SSE 连接接收实时进度
                 if (result.progressSessionId) {
+                    console.log('建立 SSE 连接:', result.progressSessionId);
                     eventSource = new EventSource(`/progress/${result.progressSessionId}`);
+                    
+                    eventSource.onopen = () => {
+                        console.log('SSE 连接已建立');
+                    };
                     
                     eventSource.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
+                            console.log('收到进度更新:', data);
                             this.updateProgress(data, progressBar, progressOverlay, progressText, progressDetails);
                         } catch (error) {
                             console.error('解析进度数据失败:', error);
@@ -199,23 +205,27 @@ class BinlogAnalyzer {
                     
                     eventSource.onerror = (error) => {
                         console.error('SSE 连接错误:', error);
-                        eventSource.close();
+                        if (eventSource.readyState === EventSource.CLOSED) {
+                            console.log('SSE 连接已关闭');
+                        }
                     };
+                } else {
+                    console.warn('未获取到 progressSessionId');
                 }
                 
-                // 显示最终结果
+                // 等待 SSE 推送完成消息，或者超时后显示最终结果
                 setTimeout(() => {
-                    progressBar.style.width = '100%';
-                    progressOverlay.textContent = '100%';
-                    progressText.textContent = '解析完成！';
-                    progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
-                    
-                    if (eventSource) {
+                    if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
+                        progressBar.style.width = '100%';
+                        progressOverlay.textContent = '100%';
+                        progressText.textContent = '解析完成！';
+                        progressDetails.textContent = `成功解析 ${result.total.toLocaleString()} 个操作，耗时 ${duration} 秒`;
                         eventSource.close();
                     }
-                }, 1000);
+                }, 5000); // 增加超时时间
                 
                 this.operations = result.operations;
+                this.sessionId = result.sessionId; // 保存 sessionId 用于后续分页查询
                 this.displayResults();
                 
                 let message = `文件解析成功！耗时 ${duration} 秒，找到 ${result.total} 个操作`;
@@ -263,8 +273,8 @@ class BinlogAnalyzer {
         // 设置默认时间范围
         this.setDefaultTimeRange();
         
-        // 显示操作列表
-        this.applyFilters();
+        // 使用后端分页 API 显示操作列表
+        await this.loadOperationsFromServer();
         
         // 显示相关区域
         document.getElementById('statsSection').classList.remove('d-none');
@@ -365,115 +375,75 @@ class BinlogAnalyzer {
         });
     }
 
-    applyFilters() {
-        const typeFilter = document.getElementById('typeFilter').value;
-        const databaseFilter = document.getElementById('databaseFilter').value;
-        const tableFilter = document.getElementById('tableFilter').value;
-        const sortBy = document.getElementById('sortBy').value;
-        
-        // 获取时间值，优先使用flatpickr的值
-        let startTime = '';
-        let endTime = '';
-        
-        if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
-            startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-        } else {
-            startTime = document.getElementById('startTime').value;
-        }
-        
-        if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
-            endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-        } else {
-            endTime = document.getElementById('endTime').value;
-        }
-        
-        console.log('Time filter:', { startTime, endTime }); // 调试日志
-
-        // 应用筛选
-        this.filteredOperations = this.operations.filter(op => {
-            // 基本筛选
-            const basicFilter = (!typeFilter || op.type === typeFilter) &&
-                               (!databaseFilter || op.database === databaseFilter) &&
-                               (!tableFilter || op.table === tableFilter);
+    async applyFilters() {
+        // 重置到第一页
+        this.currentPage = 1;
+        await this.loadOperationsFromServer();
+    }
+    
+    async loadOperationsFromServer() {
+        try {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const databaseFilter = document.getElementById('databaseFilter').value;
+            const tableFilter = document.getElementById('tableFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
             
-            if (!basicFilter) return false;
+            // 获取时间值
+            let startTime = '';
+            let endTime = '';
             
-            // 时间筛选
-            if (startTime || endTime) {
-                const opTime = this.parseTimestamp(op.timestamp);
-                if (!opTime) return false;
-                
-                if (startTime && startTime.trim()) {
-                    // 支持秒级精度的时间比较
-                    const start = new Date(startTime);
-                    if (isNaN(start.getTime())) {
-                        console.warn('无效的开始时间:', startTime);
-                    } else if (opTime.getTime() < start.getTime()) {
-                        return false;
-                    }
-                }
-                
-                if (endTime && endTime.trim()) {
-                    // 支持秒级精度的时间比较
-                    const end = new Date(endTime);
-                    if (isNaN(end.getTime())) {
-                        console.warn('无效的结束时间:', endTime);
-                    } else if (opTime.getTime() > end.getTime()) {
-                        return false;
-                    }
-                }
+            if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
+                startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+            } else {
+                startTime = document.getElementById('startTime').value;
             }
             
-            return true;
-        });
-
-        // 应用排序
-        this.filteredOperations.sort((a, b) => {
-            let result = 0;
-            
-            switch (this.currentSort.field) {
-                case 'timestamp':
-                    const timeA = this.parseTimestamp(a.timestamp);
-                    const timeB = this.parseTimestamp(b.timestamp);
-                    result = (timeA || new Date(0)) - (timeB || new Date(0));
-                    break;
-                case 'type':
-                    result = a.type.localeCompare(b.type);
-                    break;
-                case 'database':
-                    result = a.database.localeCompare(b.database);
-                    break;
-                case 'table':
-                    result = a.table.localeCompare(b.table);
-                    break;
-                default:
-                    // 兼容旧的sortBy选择器
-                    switch (sortBy) {
-                        case 'timestamp':
-                            const timeA2 = this.parseTimestamp(a.timestamp);
-                            const timeB2 = this.parseTimestamp(b.timestamp);
-                            result = (timeA2 || new Date(0)) - (timeB2 || new Date(0));
-                            break;
-                        case 'type':
-                            result = a.type.localeCompare(b.type);
-                            break;
-                        case 'database':
-                            result = a.database.localeCompare(b.database);
-                            break;
-                        case 'table':
-                            result = a.table.localeCompare(b.table);
-                            break;
-                        default:
-                            result = 0;
-                    }
+            if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
+                endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
+            } else {
+                endTime = document.getElementById('endTime').value;
             }
             
-            // 应用排序方向
-            return this.currentSort.order === 'desc' ? -result : result;
-        });
-
-        this.displayOperations();
-        this.updateFilterSummary();
+            const requestData = {
+                sessionId: this.sessionId,
+                page: this.currentPage,
+                pageSize: this.pageSize,
+                sortBy: this.currentSort.field || sortBy,
+                sortOrder: this.currentSort.order,
+                filters: {
+                    type: typeFilter,
+                    database: databaseFilter,
+                    table: tableFilter,
+                    startTime: startTime,
+                    endTime: endTime
+                }
+            };
+            
+            const response = await fetch('/operations/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.filteredOperations = result.operations;
+                this.totalOperations = result.total;
+                this.totalPages = result.totalPages;
+                
+                this.displayOperations();
+                this.updateFilterSummary();
+            } else {
+                console.error('加载操作失败:', result.error);
+                this.showNotification('加载操作失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            console.error('请求失败:', error);
+            this.showNotification('请求失败: ' + error.message, 'error');
+        }
     }
 
     parseTimestamp(timestamp) {
@@ -619,19 +589,6 @@ class BinlogAnalyzer {
     }
 
     updateFilterSummary() {
-        const totalCount = this.operations.length;
-        const filteredCount = this.filteredOperations.length;
-        
-        // 更新筛选计数显示
-        const filteredCountElement = document.getElementById('filteredCount');
-        if (filteredCount < totalCount) {
-            filteredCountElement.textContent = `${filteredCount} / ${totalCount} 条记录 (已筛选)`;
-            filteredCountElement.className = 'badge bg-warning';
-        } else {
-            filteredCountElement.textContent = `${filteredCount} 条记录`;
-            filteredCountElement.className = 'badge bg-primary';
-        }
-        
         // 显示时间范围信息
         this.displayTimeRange();
     }
@@ -704,17 +661,15 @@ class BinlogAnalyzer {
         
         tbody.innerHTML = '';
         
-        // 计算分页
-        const totalItems = this.filteredOperations.length;
-        const totalPages = Math.ceil(totalItems / this.pageSize);
+        const totalItems = this.totalOperations || this.filteredOperations.length;
+        const totalPages = this.totalPages || Math.ceil(totalItems / this.pageSize);
         const startIndex = (this.currentPage - 1) * this.pageSize;
-        const endIndex = Math.min(startIndex + this.pageSize, totalItems);
-        const currentPageData = this.filteredOperations.slice(startIndex, endIndex);
+        const endIndex = Math.min(startIndex + this.filteredOperations.length, startIndex + this.pageSize);
         
         // 更新计数显示
         filteredCount.innerHTML = `
             <div class="d-flex align-items-center gap-3">
-                <span>${totalItems} 条记录</span>
+                <span>${totalItems.toLocaleString()} 条记录</span>
                 <div class="d-flex align-items-center gap-2">
                     <label class="form-label mb-0 small">每页:</label>
                     <select class="form-select form-select-sm" style="width: 80px;" onchange="analyzer.changePageSize(this.value)">
@@ -722,15 +677,14 @@ class BinlogAnalyzer {
                         <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
                         <option value="200" ${this.pageSize === 200 ? 'selected' : ''}>200</option>
                         <option value="500" ${this.pageSize === 500 ? 'selected' : ''}>500</option>
-                        <option value="${totalItems}" ${this.pageSize >= totalItems ? 'selected' : ''}>全部</option>
+                        <option value="1000" ${this.pageSize === 1000 ? 'selected' : ''}>1000</option>
                     </select>
                 </div>
                 ${totalPages > 1 ? `<span class="small text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</span>` : ''}
             </div>
         `;
 
-        currentPageData.forEach((op, pageIndex) => {
-            const globalIndex = startIndex + pageIndex; // 全局索引
+        this.filteredOperations.forEach((op, pageIndex) => {
             const row = document.createElement('tr');
             row.className = `operation-${op.type.toLowerCase()}`;
             
@@ -745,7 +699,7 @@ class BinlogAnalyzer {
                 <td>${op.table}</td>
                 <td>${op.serverId || 'N/A'}</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${globalIndex})">
+                    <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${pageIndex})">
                         <i class="fas fa-eye"></i> 查看详情
                     </button>
                 </td>
@@ -915,18 +869,17 @@ class BinlogAnalyzer {
     }
 
     // 分页方法
-    goToPage(page) {
-        const totalPages = Math.ceil(this.filteredOperations.length / this.pageSize);
-        if (page >= 1 && page <= totalPages) {
+    async goToPage(page) {
+        if (page >= 1 && page <= this.totalPages) {
             this.currentPage = page;
-            this.displayOperations();
+            await this.loadOperationsFromServer();
         }
     }
 
-    changePageSize(size) {
+    async changePageSize(size) {
         this.pageSize = parseInt(size);
         this.currentPage = 1;
-        this.displayOperations();
+        await this.loadOperationsFromServer();
     }
 
     showOperationDetails(index) {
