@@ -3,7 +3,7 @@ class BinlogAnalyzer {
         this.operations = [];
         this.filteredOperations = [];
         this.currentPage = 1;
-        this.pageSize = 100; // 每页显示100条
+        this.pageSize = 50; // 每页显示50条
         this.currentSort = { field: 'timestamp', order: 'desc' }; // 默认按时间倒序
         this.timeFilterEnabled = false; // 时间筛选默认禁用
         this.minTimestamp = null;
@@ -318,9 +318,9 @@ class BinlogAnalyzer {
             document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(this.minTimestamp)}`;
             document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(this.maxTimestamp)}`;
             
-            // 初始化时禁用时间控件
-            document.getElementById('startTime').disabled = true;
-            document.getElementById('endTime').disabled = true;
+            // 时间控件始终可用
+            document.getElementById('startTime').disabled = false;
+            document.getElementById('endTime').disabled = false;
         }
     }
 
@@ -520,14 +520,10 @@ class BinlogAnalyzer {
         if (this.timeFilterEnabled) {
             button.className = 'btn btn-success';
             button.innerHTML = '<i class="fas fa-check-circle"></i> 时间筛选已启用';
-            startTimeInput.disabled = false;
-            endTimeInput.disabled = false;
             this.showNotification('时间筛选已启用，当前时间范围将生效', 'success');
         } else {
             button.className = 'btn btn-outline-secondary';
             button.innerHTML = '<i class="fas fa-clock"></i> 启用时间筛选';
-            startTimeInput.disabled = true;
-            endTimeInput.disabled = true;
             this.showNotification('时间筛选已禁用，显示全部时间范围', 'success');
         }
         
