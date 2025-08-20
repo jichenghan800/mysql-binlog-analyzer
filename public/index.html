@@ -47,6 +47,11 @@
             background-color: #212529;
             z-index: 10;
         }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
         .filter-section {
             background-color: #f8f9fa;
             border-radius: 10px;
@@ -148,8 +153,9 @@
                             <input type="file" id="fileInput" class="d-none">
                         </div>
                         <div class="text-center mb-3 d-none" id="doraemonIcon">
-                            <div style="font-size: 3rem; color: #0066cc;">🤖</div>
-                            <small class="text-muted">正在努力解析中...</small>
+                            <img src="/icon.svg" alt="加载中" style="width: 60px; height: 60px; object-fit: contain; animation: pulse 2s infinite;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="font-size: 3rem; color: #0066cc; display: none;">🤖</div>
+                            <small class="text-muted d-block mt-2">正在努力解析中...</small>
                         </div>
                         <div class="progress mt-3 d-none" id="uploadProgress">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
@@ -299,7 +305,7 @@
                             <table class="table table-hover">
                                 <thead class="table-dark">
                                     <tr>
-                                        <th>
+                                        <th style="width: 20%;">
                                             <div class="d-flex align-items-center">
                                                 <span>时间</span>
                                                 <div class="ms-2 d-flex flex-column" style="gap: 1px;">
@@ -312,7 +318,7 @@
                                                 </div>
                                             </div>
                                         </th>
-                                        <th>
+                                        <th style="width: 12%;">
                                             <div class="d-flex align-items-center">
                                                 <span>类型</span>
                                                 <div class="ms-2 d-flex flex-column" style="gap: 1px;">
@@ -325,7 +331,7 @@
                                                 </div>
                                             </div>
                                         </th>
-                                        <th>
+                                        <th style="width: 18%;">
                                             <div class="d-flex align-items-center">
                                                 <span>数据库</span>
                                                 <div class="ms-2 d-flex flex-column" style="gap: 1px;">
@@ -338,7 +344,7 @@
                                                 </div>
                                             </div>
                                         </th>
-                                        <th>
+                                        <th style="width: 18%;">
                                             <div class="d-flex align-items-center">
                                                 <span>表名</span>
                                                 <div class="ms-2 d-flex flex-column" style="gap: 1px;">
@@ -351,8 +357,8 @@
                                                 </div>
                                             </div>
                                         </th>
-                                        <th>事务ID</th>
-                                        <th>操作详情</th>
+                                        <th style="width: 16%;">事务ID</th>
+                                        <th style="width: 16%;">操作详情</th>
                                     </tr>
                                 </thead>
                                 <tbody id="operationsTable">

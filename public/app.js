@@ -1406,8 +1406,17 @@ class BinlogAnalyzer {
         if (titleRow && !document.getElementById('reuploadBtn')) {
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
-            reuploadBtn.className = 'btn btn-outline-primary btn-sm';
-            reuploadBtn.innerHTML = '<i class="fas fa-upload"></i> 重新上传';
+            reuploadBtn.className = 'btn btn-primary';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease;';
+            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
+            reuploadBtn.onmouseover = () => {
+                reuploadBtn.style.transform = 'translateY(-2px)';
+                reuploadBtn.style.boxShadow = '0 4px 12px rgba(0,123,255,0.4)';
+            };
+            reuploadBtn.onmouseout = () => {
+                reuploadBtn.style.transform = 'translateY(0)';
+                reuploadBtn.style.boxShadow = '0 2px 8px rgba(0,123,255,0.3)';
+            };
             reuploadBtn.onclick = () => this.showUploadSection();
             titleRow.insertBefore(reuploadBtn, titleRow.lastElementChild);
         }
