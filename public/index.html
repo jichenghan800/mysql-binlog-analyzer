@@ -217,13 +217,15 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">排序方式</label>
-                            <select class="form-select" id="sortBy">
-                                <option value="timestamp">时间</option>
-                                <option value="type">操作类型</option>
-                                <option value="database">数据库</option>
-                                <option value="table">表名</option>
-                            </select>
+                            <label class="form-label">快速筛选</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="analyzer.clearAllFilters()">
+                                    <i class="fas fa-times"></i> 清空筛选
+                                </button>
+                                <button type="button" class="btn btn-outline-info btn-sm" onclick="analyzer.applyFilters()">
+                                    <i class="fas fa-search"></i> 刷新
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -291,18 +293,54 @@
                                             <div class="d-flex align-items-center">
                                                 <span>时间</span>
                                                 <div class="ms-2">
-                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortByTime('asc')" title="时间正序">
+                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortBy('timestamp', 'asc')" title="时间正序">
                                                         <i class="fas fa-sort-up"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortByTime('desc')" title="时间倒序">
+                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortBy('timestamp', 'desc')" title="时间倒序">
                                                         <i class="fas fa-sort-down"></i>
                                                     </button>
                                                 </div>
                                             </div>
                                         </th>
-                                        <th>类型</th>
-                                        <th>数据库</th>
-                                        <th>表名</th>
+                                        <th>
+                                            <div class="d-flex align-items-center">
+                                                <span>类型</span>
+                                                <div class="ms-2">
+                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortBy('type', 'asc')" title="类型正序">
+                                                        <i class="fas fa-sort-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortBy('type', 'desc')" title="类型倒序">
+                                                        <i class="fas fa-sort-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="d-flex align-items-center">
+                                                <span>数据库</span>
+                                                <div class="ms-2">
+                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortBy('database_name', 'asc')" title="数据库正序">
+                                                        <i class="fas fa-sort-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortBy('database_name', 'desc')" title="数据库倒序">
+                                                        <i class="fas fa-sort-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th>
+                                            <div class="d-flex align-items-center">
+                                                <span>表名</span>
+                                                <div class="ms-2">
+                                                    <button class="btn btn-sm btn-outline-light me-1" onclick="analyzer.sortBy('table_name', 'asc')" title="表名正序">
+                                                        <i class="fas fa-sort-up"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="analyzer.sortBy('table_name', 'desc')" title="表名倒序">
+                                                        <i class="fas fa-sort-down"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </th>
                                         <th>服务器ID</th>
                                         <th>操作详情</th>
                                     </tr>

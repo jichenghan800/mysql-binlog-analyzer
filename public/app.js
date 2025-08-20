@@ -488,35 +488,29 @@ class BinlogAnalyzer {
     }
     
     async loadOperationsFromServer() {
+        // 显示加载状态
+        this.showLoadingState(true);
+        
         try {
             const typeFilter = document.getElementById('typeFilter').value;
             const databaseFilter = document.getElementById('databaseFilter').value;
             const tableFilter = document.getElementById('tableFilter').value;
-            const sortBy = document.getElementById('sortBy').value;
             
             // 获取时间值（只在启用时间筛选时使用）
             let startTime = '';
             let endTime = '';
             
             if (this.timeFilterEnabled) {
-                if (this.startTimePicker && this.startTimePicker.selectedDates.length > 0) {
-                    startTime = this.startTimePicker.formatDate(this.startTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-                } else {
-                    startTime = document.getElementById('startTime').value;
-                }
-                
-                if (this.endTimePicker && this.endTimePicker.selectedDates.length > 0) {
-                    endTime = this.endTimePicker.formatDate(this.endTimePicker.selectedDates[0], 'Y-m-d H:i:S');
-                } else {
-                    endTime = document.getElementById('endTime').value;
-                }
+                startTime = document.getElementById('startTime').value;
+                endTime = document.getElementById('endTime').value;
+                console.log('时间筛选已启用:', { startTime, endTime });
             }
             
             const requestData = {
                 sessionId: this.sessionId,
                 page: this.currentPage,
                 pageSize: this.pageSize,
-                sortBy: this.currentSort.field || sortBy,
+                sortBy: this.currentSort.field,
                 sortOrder: this.currentSort.order,
                 filters: {
                     type: typeFilter,
@@ -527,6 +521,8 @@ class BinlogAnalyzer {
                 }
             };
             
+            console.log('发送查询请求:', requestData);
+            
             const response = await fetch('/operations/query', {
                 method: 'POST',
                 headers: {
@@ -536,6 +532,7 @@ class BinlogAnalyzer {
             });
             
             const result = await response.json();
+            console.log('查询结果:', result);
             
             if (result.success) {
                 this.filteredOperations = result.operations;
@@ -551,6 +548,9 @@ class BinlogAnalyzer {
         } catch (error) {
             console.error('请求失败:', error);
             this.showNotification('请求失败: ' + error.message, 'error');
+        } finally {
+            // 隐藏加载状态
+            this.showLoadingState(false);
         }
     }
 
@@ -986,12 +986,20 @@ class BinlogAnalyzer {
         return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // 时间排序方法
-    sortByTime(order) {
-        this.currentSort = { field: 'timestamp', order: order };
+    // 排序方法
+    sortBy(field, order) {
+        this.currentSort = { field: field, order: order };
         this.currentPage = 1; // 重置到第一页
         this.applyFilters();
-        this.showNotification(`已按时间${order === 'asc' ? '正序' : '倒序'}排列`, 'success');
+        
+        const fieldNames = {
+            'timestamp': '时间',
+            'type': '类型',
+            'database_name': '数据库',
+            'table_name': '表名'
+        };
+        
+        this.showNotification(`已按${fieldNames[field] || field}${order === 'asc' ? '正序' : '倒序'}排列`, 'success');
     }
 
     // 分页方法
@@ -1321,6 +1329,48 @@ class BinlogAnalyzer {
         }
     }
 
+    showLoadingState(show) {
+        const operationsTable = document.getElementById('operationsTable');
+        const paginationContainer = document.getElementById('paginationContainer');
+        
+        if (show) {
+            // 显示加载状态
+            operationsTable.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <div class="mt-2">正在查询数据...</div>
+                    </td>
+                </tr>
+            `;
+            if (paginationContainer) {
+                paginationContainer.innerHTML = '';
+            }
+        }
+    }
+    
+    clearAllFilters() {
+        // 清空筛选条件
+        document.getElementById('typeFilter').value = '';
+        document.getElementById('databaseFilter').value = '';
+        document.getElementById('tableFilter').value = '';
+        
+        // 禁用时间筛选
+        this.timeFilterEnabled = false;
+        const button = document.getElementById('timeFilterToggle');
+        button.className = 'btn btn-outline-secondary';
+        button.innerHTML = '<i class="fas fa-clock"></i> 启用时间筛选';
+        
+        // 重置排序
+        this.currentSort = { field: 'timestamp', order: 'desc' };
+        this.currentPage = 1;
+        
+        this.showNotification('已清空所有筛选条件', 'success');
+        this.applyFilters();
+    }
+    
     showNotification(message, type) {
         const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
         const notification = document.createElement('div');
