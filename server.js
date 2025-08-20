@@ -419,13 +419,38 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       const columnMatch = line.match(/###\s+@(\d+)=(.+)/);
       if (columnMatch) {
         const columnIndex = parseInt(columnMatch[1]);
-        let value = columnMatch[2];
+        let originalValue = columnMatch[2];
+        let value = originalValue;
+        
+        // 调试：记录原始值
+        if (originalValue && (originalValue.includes('$') || /\d+/.test(originalValue))) {
+          console.log(`[调试] 原始行: ${line}`);
+          console.log(`[调试] 列${columnIndex} 原始值: "${originalValue}" (类型: ${typeof originalValue})`);
+          
+          // 检查是否包含$符号
+          if (originalValue.includes('$')) {
+            console.log(`[调试] 发现$符号，原始值: "${originalValue}"`);
+          }
+        }
         
         // 只清理明显的控制字符，保留$数字等可能的有效内容
         if (value && typeof value === 'string') {
+          const beforeClean = value;
           value = value
             .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符，保留\t\n\r
             .trim();
+          
+          // 调试：如果值发生了变化
+          if (beforeClean !== value) {
+            console.log(`[调试] 列${columnIndex} 清理前: "${beforeClean}"`);
+            console.log(`[调试] 列${columnIndex} 清理后: "${value}"`);
+          }
+        }
+        
+        // 调试：记录最终值
+        if (originalValue && (originalValue.includes('$') || /\d+/.test(originalValue))) {
+          console.log(`[调试] 列${columnIndex} 最终值: "${value}" (类型: ${typeof value})`);
+          console.log(`[调试] ---`);
         }
         
         if (currentOperation.type === 'UPDATE') {
@@ -596,6 +621,12 @@ function formatValue(value) {
     return 'NULL';
   }
   
+  // 调试：记录格式化过程
+  const originalValue = value;
+  if (originalValue && (originalValue.toString().includes('$') || originalValue.toString().includes('26') || originalValue.toString().includes('52'))) {
+    console.log(`[格式化调试] 输入值: "${originalValue}" (类型: ${typeof originalValue})`);
+  }
+  
   // 转换为字符串并清理
   let cleanValue = value.toString().trim();
   
@@ -603,18 +634,35 @@ function formatValue(value) {
   cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
   
   // 只清理明显的控制字符，不要清理可能有意义的内容
+  const beforeControlClean = cleanValue;
   cleanValue = cleanValue
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符
     .trim();
   
+  // 调试：记录清理过程
+  if (originalValue && (originalValue.toString().includes('$') || originalValue.toString().includes('26') || originalValue.toString().includes('52'))) {
+    console.log(`[格式化调试] 去引号后: "${beforeControlClean}"`);
+    console.log(`[格式化调试] 清理控制字符后: "${cleanValue}"`);
+  }
+  
   // 检查是否为数字（包括小数和负数）
   if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
+    if (originalValue && (originalValue.toString().includes('$') || originalValue.toString().includes('26') || originalValue.toString().includes('52'))) {
+      console.log(`[格式化调试] 识别为数字: ${cleanValue}`);
+    }
     return cleanValue;
   }
   
   // 字符串值需要转义单引号并添加引号
   const escapedValue = cleanValue.replace(/'/g, "''");
-  return `'${escapedValue}'`;
+  const result = `'${escapedValue}'`;
+  
+  if (originalValue && (originalValue.toString().includes('$') || originalValue.toString().includes('26') || originalValue.toString().includes('52'))) {
+    console.log(`[格式化调试] 最终结果: ${result}`);
+    console.log(`[格式化调试] ---`);
+  }
+  
+  return result;
 }
 
 // 内存使用监控
