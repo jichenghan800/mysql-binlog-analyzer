@@ -1454,17 +1454,13 @@ class BinlogAnalyzer {
     }
     
     addReuploadButton() {
-        const titleContainer = document.querySelector('.row .col-12');
-        if (titleContainer && !document.getElementById('reuploadBtn')) {
-            // 创建居中的按钮容器
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'text-center my-4';
-            
+        const titleRow = document.querySelector('.row .col-12 .d-flex');
+        if (titleRow && !document.getElementById('reuploadBtn')) {
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
-            reuploadBtn.className = 'btn btn-primary btn-lg';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1.2rem; font-weight: 600; padding: 12px 30px; border-radius: 8px;';
-            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传文件';
+            reuploadBtn.className = 'btn btn-primary';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1rem; font-weight: 600; padding: 8px 20px; border-radius: 6px;';
+            reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
             reuploadBtn.onmouseover = () => {
                 reuploadBtn.style.transform = 'translateY(-2px)';
                 reuploadBtn.style.boxShadow = '0 4px 12px rgba(0,123,255,0.4)';
@@ -1478,9 +1474,13 @@ class BinlogAnalyzer {
                 window.location.reload();
             };
             
-            buttonContainer.appendChild(reuploadBtn);
-            // 插入到标题行的下方
-            titleContainer.appendChild(buttonContainer);
+            // 插入到标题和帮助按钮之间
+            const helpButton = titleRow.querySelector('a[href="help.html"]');
+            if (helpButton) {
+                titleRow.insertBefore(reuploadBtn, helpButton);
+            } else {
+                titleRow.appendChild(reuploadBtn);
+            }
         }
     }
     
