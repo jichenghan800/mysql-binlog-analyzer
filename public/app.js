@@ -301,13 +301,19 @@ class BinlogAnalyzer {
             this.minTimestamp = timestamps[0];
             this.maxTimestamp = timestamps[timestamps.length - 1];
             
-            // 设置默认时间值，不限制日期范围
+            console.log('设置默认时间范围:');
+            console.log('最小时间:', this.formatDateTime(this.minTimestamp));
+            console.log('最大时间:', this.formatDateTime(this.maxTimestamp));
+            
+            // 设置默认时间值
             if (this.startTimePicker) {
-                this.startTimePicker.setDate(this.minTimestamp, true);
+                this.startTimePicker.setDate(this.minTimestamp, false);
+                document.getElementById('startTime').value = this.formatDateTimeForInput(this.minTimestamp);
             }
             
             if (this.endTimePicker) {
-                this.endTimePicker.setDate(this.maxTimestamp, true);
+                this.endTimePicker.setDate(this.maxTimestamp, false);
+                document.getElementById('endTime').value = this.formatDateTimeForInput(this.maxTimestamp);
             }
             
             // 更新placeholder显示时间范围
@@ -325,6 +331,18 @@ class BinlogAnalyzer {
         const minutes = String(date.getMinutes()).padStart(2, '0');
         
         return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
+    formatDateTimeForInput(date) {
+        // 格式化为 flatpickr 输入格式 YYYY-MM-DD HH:mm:SS
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
     async displayStatistics() {
