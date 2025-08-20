@@ -149,9 +149,10 @@ class BinlogAnalyzer {
         progressText.textContent = '正在上传文件...';
         progressDetails.textContent = '初始化中...';
 
+        let eventSource = null;
+        let uploadProgress = 0;
+        
         try {
-            let eventSource = null;
-            let uploadProgress = 0;
             
             // 生成临时会话 ID 用于 SSE 连接
             const tempSessionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -263,7 +264,7 @@ class BinlogAnalyzer {
             this.showNotification(errorMessage, 'error');
         } finally {
             // 关闭 SSE 连接
-            if (eventSource) {
+            if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
                 eventSource.close();
             }
         }
@@ -291,11 +292,26 @@ class BinlogAnalyzer {
     setDefaultTimeRange() {
         if (this.operations.length === 0) return;
         
+        console.log('调试: 开始设置默认时间范围, 操作数量:', this.operations.length);
+        console.log('前5个操作的原始时间戳:', this.operations.slice(0, 5).map(op => op.timestamp));
+        
         // 获取所有有效的时间戳
         const timestamps = this.operations
-            .map(op => this.parseTimestamp(op.timestamp))
+            .map(op => {
+                const parsed = this.parseTimestamp(op.timestamp);
+                if (!parsed) {
+                    console.log('无法解析时间戳:', op.timestamp);
+                }
+                return parsed;
+            })
             .filter(t => t !== null)
             .sort((a, b) => a - b);
+        
+        console.log('有效时间戳数量:', timestamps.length);
+        if (timestamps.length > 0) {
+            console.log('最早时间戳:', timestamps[0]);
+            console.log('最晚时间戳:', timestamps[timestamps.length - 1]);
+        }
         
         if (timestamps.length > 0) {
             this.minTimestamp = timestamps[0];
