@@ -35,7 +35,31 @@
         .stats-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 15px;
+            border-radius: 10px;
+        }
+        .stats-card .card-body {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .stats-card .card-body i {
+            font-size: 2rem;
+        }
+        .stats-card .card-body .stats-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .stats-card .card-body h3 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .stats-card .card-body p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
         }
         .table-responsive {
             max-height: 600px;
@@ -170,37 +194,45 @@
         <div class="row mb-4 d-none" id="statsSection">
             <div class="col-md-3">
                 <div class="card stats-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-list-ol fa-2x mb-2"></i>
-                        <h3 id="totalOperations">0</h3>
-                        <p>总操作数</p>
+                    <div class="card-body">
+                        <i class="fas fa-list-ol"></i>
+                        <div class="stats-content">
+                            <h3 id="totalOperations">0</h3>
+                            <p>总操作数</p>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body text-center">
-                        <i class="fas fa-plus fa-2x mb-2"></i>
-                        <h3 id="insertCount">0</h3>
-                        <p>INSERT 操作</p>
+                <div class="card bg-success text-white" style="border-radius: 10px;">
+                    <div class="card-body" style="padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-plus" style="font-size: 2rem;"></i>
+                        <div class="stats-content">
+                            <h3 id="insertCount" style="margin: 0; font-size: 1.8rem; font-weight: bold;">0</h3>
+                            <p style="margin: 0; font-size: 0.9rem; opacity: 0.9;">INSERT 操作</p>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card bg-warning text-white">
-                    <div class="card-body text-center">
-                        <i class="fas fa-edit fa-2x mb-2"></i>
-                        <h3 id="updateCount">0</h3>
-                        <p>UPDATE 操作</p>
+                <div class="card bg-warning text-white" style="border-radius: 10px;">
+                    <div class="card-body" style="padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-edit" style="font-size: 2rem;"></i>
+                        <div class="stats-content">
+                            <h3 id="updateCount" style="margin: 0; font-size: 1.8rem; font-weight: bold;">0</h3>
+                            <p style="margin: 0; font-size: 0.9rem; opacity: 0.9;">UPDATE 操作</p>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card bg-danger text-white">
-                    <div class="card-body text-center">
-                        <i class="fas fa-trash fa-2x mb-2"></i>
-                        <h3 id="deleteCount">0</h3>
-                        <p>DELETE 操作</p>
+                <div class="card bg-danger text-white" style="border-radius: 10px;">
+                    <div class="card-body" style="padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <i class="fas fa-trash" style="font-size: 2rem;"></i>
+                        <div class="stats-content">
+                            <h3 id="deleteCount" style="margin: 0; font-size: 1.8rem; font-weight: bold;">0</h3>
+                            <p style="margin: 0; font-size: 0.9rem; opacity: 0.9;">DELETE 操作</p>
+                        </div>
                     </div>
                 </div>
             </div>

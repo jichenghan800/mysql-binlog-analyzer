@@ -1459,7 +1459,7 @@ class BinlogAnalyzer {
             const reuploadBtn = document.createElement('button');
             reuploadBtn.id = 'reuploadBtn';
             reuploadBtn.className = 'btn btn-primary';
-            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; font-size: 1rem; margin-left: 15px;';
+            reuploadBtn.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; box-shadow: 0 2px 8px rgba(0,123,255,0.3); transition: all 0.3s ease; margin-left: 20px;';
             reuploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>重新上传';
             reuploadBtn.onmouseover = () => {
                 reuploadBtn.style.transform = 'translateY(-2px)';
@@ -1469,11 +1469,16 @@ class BinlogAnalyzer {
                 reuploadBtn.style.transform = 'translateY(0)';
                 reuploadBtn.style.boxShadow = '0 2px 8px rgba(0,123,255,0.3)';
             };
-            reuploadBtn.onclick = () => this.showUploadSection();
-            // 插入到标题和帮助按钮之间
-            const helpButton = titleRow.querySelector('a[href="help.html"]');
-            if (helpButton) {
-                titleRow.insertBefore(reuploadBtn, helpButton);
+            reuploadBtn.onclick = () => {
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    fileInput.click();
+                }
+            };
+            // 插入到标题后面
+            const title = titleRow.querySelector('h1');
+            if (title) {
+                title.insertAdjacentElement('afterend', reuploadBtn);
             } else {
                 titleRow.appendChild(reuploadBtn);
             }

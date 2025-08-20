@@ -592,8 +592,8 @@ function formatValue(value) {
   // 转换为字符串并清理
   let cleanValue = value.toString().trim();
   
-  // 移除已有的引号
-  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
+  // 移除已有的引号和可能的异常字符
+  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '').replace(/\$\d+/g, '');
   
   // 检查是否为数字（包括小数和负数）
   if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
