@@ -57,9 +57,16 @@ log_success "环境检查通过"
 # 2. 清理旧环境
 log_info "步骤2: 清理旧环境..."
 
+# 停止并删除所有相关容器
+log_info "停止所有相关容器..."
+docker ps -a | grep mysql-binlog-analyzer | awk '{print $1}' | xargs docker stop 2>/dev/null || true
+docker ps -a | grep mysql-binlog-analyzer | awk '{print $1}' | xargs docker rm -f 2>/dev/null || true
+
 # 停止并删除旧容器
 if [ -d "mysql-binlog-analyzer" ]; then
     cd mysql-binlog-analyzer
+    docker-compose --profile memory-only down --remove-orphans 2>/dev/null || true
+    docker-compose --profile with-database down --remove-orphans 2>/dev/null || true
     docker-compose down --remove-orphans 2>/dev/null || true
     cd ..
 fi
@@ -172,16 +179,24 @@ log_success "部署模式选择完成: $SERVICE_NAME"
 # 7. 检查端口占用
 log_info "步骤7: 检查端口占用..."
 
+# 强制清理端口占用
+log_info "清理端口占用..."
 if netstat -tlnp | grep :$CHECK_PORT >/dev/null 2>&1; then
-    log_warning "端口$CHECK_PORT被占用，尝试释放..."
+    log_warning "端口$CHECK_PORT被占用，强制释放..."
     sudo fuser -k $CHECK_PORT/tcp 2>/dev/null || true
-    sleep 2
+    sleep 3
+    # 再次检查
+    if netstat -tlnp | grep :$CHECK_PORT >/dev/null 2>&1; then
+        log_error "端口$CHECK_PORT仍被占用，请手动检查"
+        netstat -tlnp | grep :$CHECK_PORT
+        exit 1
+    fi
 fi
 
 if [ "$choice" = "2" ] && netstat -tlnp | grep :3306 >/dev/null 2>&1; then
-    log_warning "端口3306被占用，尝试释放..."
+    log_warning "端口3306被占用，强制释放..."
     sudo fuser -k 3306/tcp 2>/dev/null || true
-    sleep 2
+    sleep 3
 fi
 
 log_success "端口检查完成"
