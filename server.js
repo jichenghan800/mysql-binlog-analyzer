@@ -577,6 +577,9 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     let sessionId = null;
     const isDocker = fs.existsSync('/.dockerenv');
     
+    // 存储到全局变量供内存查询使用
+    global.currentOperations = operations;
+    
     // Docker环境下大文件自动使用数据库存储（如果可用）
     const shouldUseDatabase = dbManager.useDatabase || (isDocker && operations.length > 100);
     
@@ -606,11 +609,17 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
 
     res.json({
       success: true,
-      operations: sessionId ? operations.slice(0, 100) : operations, // 大文件只返回前100条预览
+      operations: operations.slice(0, 50), // 只返回前50条作为预览
       total: operations.length,
       sessionId: sessionId,
       useDatabase: !!sessionId,
-      memoryUsage: finalMemory
+      memoryUsage: finalMemory,
+      hasMore: operations.length > 50,
+      // 返回筛选选项
+      filterOptions: {
+        databases: Array.from(new Set(operations.map(op => op.database))).sort(),
+        tables: Array.from(new Set(operations.map(op => `${op.database}.${op.table}`))).sort()
+      }
     });
 
   } catch (error) {
@@ -631,41 +640,183 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
   }
 });
 
-// 获取统计信息
-app.post('/statistics', (req, res) => {
-  const { operations } = req.body;
-  
-  if (!operations || !Array.isArray(operations)) {
-    return res.status(400).json({ error: '无效的操作数据' });
+// 分页查询 API
+app.post('/operations/query', async (req, res) => {
+  try {
+    const {
+      sessionId,
+      page = 1,
+      pageSize = 50,
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
+      filters = {}
+    } = req.body;
+
+    let operations = [];
+    
+    // 从数据库或内存获取数据
+    if (sessionId && dbManager.useDatabase) {
+      // 从数据库查询
+      operations = await dbManager.getOperations(sessionId, {
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        filters
+      });
+    } else {
+      // 从内存查询（需要先存储在全局变量中）
+      if (!global.currentOperations) {
+        return res.status(400).json({ error: '没有可用的操作数据' });
+      }
+      
+      operations = filterAndSortOperations(global.currentOperations, {
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        filters
+      });
+    }
+
+    res.json({
+      success: true,
+      operations: operations.data || operations,
+      total: operations.total || global.currentOperations?.length || 0,
+      page,
+      pageSize,
+      totalPages: Math.ceil((operations.total || global.currentOperations?.length || 0) / pageSize)
+    });
+  } catch (error) {
+    console.error('查询操作失败:', error);
+    res.status(500).json({ error: '查询失败: ' + error.message });
+  }
+});
+
+// 内存中的筛选和排序函数
+function filterAndSortOperations(operations, options) {
+  const { page, pageSize, sortBy, sortOrder, filters } = options;
+  let filtered = [...operations];
+
+  // 应用筛选
+  if (filters.type) {
+    filtered = filtered.filter(op => op.type === filters.type);
+  }
+  if (filters.database) {
+    filtered = filtered.filter(op => op.database === filters.database);
+  }
+  if (filters.table) {
+    filtered = filtered.filter(op => op.table === filters.table);
+  }
+  if (filters.startTime) {
+    filtered = filtered.filter(op => op.timestamp >= filters.startTime);
+  }
+  if (filters.endTime) {
+    filtered = filtered.filter(op => op.timestamp <= filters.endTime);
   }
 
-  const stats = {
-    total: operations.length,
-    byType: {},
-    byTable: {},
-    byDatabase: {},
-    timeline: {}
-  };
-
-  operations.forEach(op => {
-    // 按类型统计
-    stats.byType[op.type] = (stats.byType[op.type] || 0) + 1;
+  // 排序
+  filtered.sort((a, b) => {
+    let aVal = a[sortBy];
+    let bVal = b[sortBy];
     
-    // 按表统计
-    const tableKey = `${op.database}.${op.table}`;
-    stats.byTable[tableKey] = (stats.byTable[tableKey] || 0) + 1;
-    
-    // 按数据库统计
-    stats.byDatabase[op.database] = (stats.byDatabase[op.database] || 0) + 1;
-    
-    // 时间线统计（按小时）
-    if (op.timestamp) {
-      const hour = op.timestamp.split(' ')[1].split(':')[0];
-      stats.timeline[hour] = (stats.timeline[hour] || 0) + 1;
+    if (sortBy === 'timestamp') {
+      aVal = new Date(aVal || '1970-01-01');
+      bVal = new Date(bVal || '1970-01-01');
     }
+    
+    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
 
-  res.json(stats);
+  // 分页
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  
+  return {
+    data: filtered.slice(start, end),
+    total: filtered.length
+  };
+}
+
+// 获取统计信息
+app.post('/statistics', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    let operations = [];
+    
+    if (sessionId && dbManager.useDatabase) {
+      // 从数据库获取统计
+      const stats = await dbManager.getStatistics(sessionId);
+      return res.json(stats);
+    } else if (global.currentOperations) {
+      operations = global.currentOperations;
+    } else {
+      return res.status(400).json({ error: '没有可用的操作数据' });
+    }
+
+    const stats = {
+      total: operations.length,
+      byType: {},
+      byTable: {},
+      byDatabase: {},
+      timeline: {}
+    };
+
+    operations.forEach(op => {
+      // 按类型统计
+      stats.byType[op.type] = (stats.byType[op.type] || 0) + 1;
+      
+      // 按表统计
+      const tableKey = `${op.database}.${op.table}`;
+      stats.byTable[tableKey] = (stats.byTable[tableKey] || 0) + 1;
+      
+      // 按数据库统计
+      stats.byDatabase[op.database] = (stats.byDatabase[op.database] || 0) + 1;
+      
+      // 时间线统计（按小时）
+      if (op.timestamp) {
+        const hour = op.timestamp.split(' ')[1].split(':')[0];
+        stats.timeline[hour] = (stats.timeline[hour] || 0) + 1;
+      }
+    });
+
+    res.json(stats);
+  } catch (error) {
+    console.error('获取统计信息失败:', error);
+    res.status(500).json({ error: '获取统计信息失败: ' + error.message });
+  }
+});
+
+// 获取筛选选项
+app.post('/filter-options', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    let options = { databases: [], tables: [] };
+    
+    if (sessionId && dbManager.useDatabase) {
+      // 从数据库获取
+      options = await dbManager.getFilterOptions(sessionId);
+    } else if (global.currentOperations) {
+      // 从内存获取
+      const databases = new Set();
+      const tables = new Set();
+      
+      global.currentOperations.forEach(op => {
+        databases.add(op.database);
+        tables.add(`${op.database}.${op.table}`);
+      });
+      
+      options.databases = Array.from(databases).sort();
+      options.tables = Array.from(tables).sort();
+    }
+    
+    res.json(options);
+  } catch (error) {
+    console.error('获取筛选选项失败:', error);
+    res.status(500).json({ error: '获取筛选选项失败: ' + error.message });
+  }
 });
 
 // 获取本机IP地址

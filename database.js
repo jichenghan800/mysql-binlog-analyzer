@@ -96,50 +96,67 @@ class DatabaseManager {
         }
     }
 
-    async getOperations(sessionId, filters = {}) {
+    async getOperations(sessionId, options = {}) {
         if (!this.useDatabase || !this.connection) {
             return null;
         }
 
         try {
-            let sql = 'SELECT * FROM binlog_operations WHERE session_id = ?';
+            const { page = 1, pageSize = 50, sortBy = 'timestamp', sortOrder = 'desc', filters = {} } = options;
+            
+            // 构建查询条件
+            let whereClause = 'WHERE session_id = ?';
             const params = [sessionId];
 
             if (filters.type) {
-                sql += ' AND type = ?';
+                whereClause += ' AND type = ?';
                 params.push(filters.type);
             }
 
             if (filters.database) {
-                sql += ' AND database_name = ?';
+                whereClause += ' AND database_name = ?';
                 params.push(filters.database);
             }
 
             if (filters.table) {
-                sql += ' AND table_name = ?';
+                whereClause += ' AND table_name = ?';
                 params.push(filters.table);
             }
 
             if (filters.startTime) {
-                sql += ' AND timestamp >= ?';
+                whereClause += ' AND timestamp >= ?';
                 params.push(filters.startTime);
             }
 
             if (filters.endTime) {
-                sql += ' AND timestamp <= ?';
+                whereClause += ' AND timestamp <= ?';
                 params.push(filters.endTime);
             }
 
-            sql += ' ORDER BY timestamp DESC';
+            // 获取总数
+            const countSQL = `SELECT COUNT(*) as total FROM binlog_operations ${whereClause}`;
+            const [countResult] = await this.connection.execute(countSQL, params);
+            const total = countResult[0].total;
 
-            if (filters.limit) {
-                sql += ' LIMIT ?';
-                params.push(parseInt(filters.limit));
-            }
-
-            const [rows] = await this.connection.execute(sql, params);
+            // 构建排序子句
+            const sortColumn = {
+                'timestamp': 'timestamp',
+                'type': 'type',
+                'database': 'database_name',
+                'table': 'table_name'
+            }[sortBy] || 'timestamp';
             
-            return rows.map(row => ({
+            const orderClause = `ORDER BY ${sortColumn} ${sortOrder.toUpperCase()}`;
+            
+            // 分页
+            const offset = (page - 1) * pageSize;
+            const limitClause = `LIMIT ${pageSize} OFFSET ${offset}`;
+
+            // 执行查询
+            const dataSQL = `SELECT * FROM binlog_operations ${whereClause} ${orderClause} ${limitClause}`;
+            const [rows] = await this.connection.execute(dataSQL, params);
+            
+            const operations = rows.map(row => ({
                 type: row.type,
                 database: row.database_name,
                 table: row.table_name,
@@ -151,8 +168,80 @@ class DatabaseManager {
                 originalSQL: row.original_sql,
                 reverseSQL: row.reverse_sql
             }));
+
+            return {
+                data: operations,
+                total: total,
+                page: page,
+                pageSize: pageSize,
+                totalPages: Math.ceil(total / pageSize)
+            };
         } catch (error) {
             console.error('从数据库获取数据失败:', error);
+            return null;
+        }
+    }
+
+    async getStatistics(sessionId) {
+        if (!this.useDatabase || !this.connection) {
+            return null;
+        }
+
+        try {
+            const stats = {
+                total: 0,
+                byType: {},
+                byTable: {},
+                byDatabase: {},
+                timeline: {}
+            };
+
+            // 获取总数
+            const [totalResult] = await this.connection.execute(
+                'SELECT COUNT(*) as total FROM binlog_operations WHERE session_id = ?',
+                [sessionId]
+            );
+            stats.total = totalResult[0].total;
+
+            // 按类型统计
+            const [typeResult] = await this.connection.execute(
+                'SELECT type, COUNT(*) as count FROM binlog_operations WHERE session_id = ? GROUP BY type',
+                [sessionId]
+            );
+            typeResult.forEach(row => {
+                stats.byType[row.type] = row.count;
+            });
+
+            // 按数据库统计
+            const [dbResult] = await this.connection.execute(
+                'SELECT database_name, COUNT(*) as count FROM binlog_operations WHERE session_id = ? GROUP BY database_name',
+                [sessionId]
+            );
+            dbResult.forEach(row => {
+                stats.byDatabase[row.database_name] = row.count;
+            });
+
+            // 按表统计
+            const [tableResult] = await this.connection.execute(
+                'SELECT CONCAT(database_name, ".", table_name) as table_key, COUNT(*) as count FROM binlog_operations WHERE session_id = ? GROUP BY database_name, table_name',
+                [sessionId]
+            );
+            tableResult.forEach(row => {
+                stats.byTable[row.table_key] = row.count;
+            });
+
+            // 按小时统计
+            const [timeResult] = await this.connection.execute(
+                'SELECT HOUR(timestamp) as hour, COUNT(*) as count FROM binlog_operations WHERE session_id = ? AND timestamp IS NOT NULL GROUP BY HOUR(timestamp)',
+                [sessionId]
+            );
+            timeResult.forEach(row => {
+                stats.timeline[row.hour.toString().padStart(2, '0')] = row.count;
+            });
+
+            return stats;
+        } catch (error) {
+            console.error('获取统计信息失败:', error);
             return null;
         }
     }
@@ -168,6 +257,38 @@ class DatabaseManager {
         } catch (error) {
             console.error('清理数据库会话失败:', error);
             return false;
+        }
+    }
+
+    async getFilterOptions(sessionId) {
+        if (!this.useDatabase || !this.connection) {
+            return null;
+        }
+
+        try {
+            const options = {
+                databases: [],
+                tables: []
+            };
+
+            // 获取数据库列表
+            const [dbResult] = await this.connection.execute(
+                'SELECT DISTINCT database_name FROM binlog_operations WHERE session_id = ? ORDER BY database_name',
+                [sessionId]
+            );
+            options.databases = dbResult.map(row => row.database_name);
+
+            // 获取表列表
+            const [tableResult] = await this.connection.execute(
+                'SELECT DISTINCT CONCAT(database_name, ".", table_name) as table_name FROM binlog_operations WHERE session_id = ? ORDER BY database_name, table_name',
+                [sessionId]
+            );
+            options.tables = tableResult.map(row => row.table_name);
+
+            return options;
+        } catch (error) {
+            console.error('获取筛选选项失败:', error);
+            return null;
         }
     }
 
