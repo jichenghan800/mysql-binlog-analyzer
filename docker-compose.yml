@@ -6,7 +6,7 @@ services:
   app:
     build: .
     ports:
-      - "5001:3000"
+      - "5000:3000"
     environment:
       - NODE_ENV=production
       - USE_DATABASE=false
