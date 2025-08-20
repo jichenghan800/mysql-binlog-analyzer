@@ -205,15 +205,19 @@ class DatabaseManager {
             }
 
             if (filters.startTime) {
+                // 将本地时间转换为UTC时间进行查询
+                const startTimeUTC = new Date(filters.startTime).toISOString().slice(0, 19).replace('T', ' ');
                 whereClause += ' AND timestamp >= ?';
-                params.push(filters.startTime);
-                console.log('添加开始时间筛选:', filters.startTime);
+                params.push(startTimeUTC);
+                console.log('添加开始时间筛选:', filters.startTime, '-> UTC:', startTimeUTC);
             }
 
             if (filters.endTime) {
+                // 将本地时间转换为UTC时间进行查询
+                const endTimeUTC = new Date(filters.endTime).toISOString().slice(0, 19).replace('T', ' ');
                 whereClause += ' AND timestamp <= ?';
-                params.push(filters.endTime);
-                console.log('添加结束时间筛选:', filters.endTime);
+                params.push(endTimeUTC);
+                console.log('添加结束时间筛选:', filters.endTime, '-> UTC:', endTimeUTC);
             }
             
             // 检查时间范围内的数据量
