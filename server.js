@@ -421,9 +421,11 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         const columnIndex = parseInt(columnMatch[1]);
         let value = columnMatch[2];
         
-        // 清理值中可能的异常字符
+        // 只清理明显的控制字符，保留$数字等可能的有效内容
         if (value && typeof value === 'string') {
-          value = value.replace(/\$\d+/g, '').trim();
+          value = value
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符，保留\t\n\r
+            .trim();
         }
         
         if (currentOperation.type === 'UPDATE') {
@@ -600,11 +602,9 @@ function formatValue(value) {
   // 移除已有的引号
   cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
   
-  // 彻底清理所有可能的异常字符：$数字、特殊符号等
+  // 只清理明显的控制字符，不要清理可能有意义的内容
   cleanValue = cleanValue
-    .replace(/\$\d+/g, '')           // 清理 $52 等
-    .replace(/[\x00-\x1F\x7F]/g, '') // 清理控制字符
-    .replace(/\\[nrt]/g, '')        // 清理转义字符
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 只清理控制字符
     .trim();
   
   // 检查是否为数字（包括小数和负数）
