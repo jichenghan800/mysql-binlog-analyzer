@@ -301,26 +301,18 @@ class BinlogAnalyzer {
             this.minTimestamp = timestamps[0];
             this.maxTimestamp = timestamps[timestamps.length - 1];
             
-            // 设置flatpickr的最小和最大日期
+            // 设置默认时间值，不限制日期范围
             if (this.startTimePicker) {
-                this.startTimePicker.set('minDate', this.minTimestamp);
-                this.startTimePicker.set('maxDate', this.maxTimestamp);
-                this.startTimePicker.setDate(this.minTimestamp, false);
+                this.startTimePicker.setDate(this.minTimestamp, true);
             }
             
             if (this.endTimePicker) {
-                this.endTimePicker.set('minDate', this.minTimestamp);
-                this.endTimePicker.set('maxDate', this.maxTimestamp);
-                this.endTimePicker.setDate(this.maxTimestamp, false);
+                this.endTimePicker.setDate(this.maxTimestamp, true);
             }
             
             // 更新placeholder显示时间范围
             document.getElementById('startTime').placeholder = `最早: ${this.formatDateTime(this.minTimestamp)}`;
             document.getElementById('endTime').placeholder = `最晚: ${this.formatDateTime(this.maxTimestamp)}`;
-            
-            // 时间控件始终可用
-            document.getElementById('startTime').disabled = false;
-            document.getElementById('endTime').disabled = false;
         }
     }
 
