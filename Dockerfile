@@ -1,12 +1,17 @@
                                                                                                                                    Dockerfile                                                                                                                                                   
-FROM node:18-slim
+FROM node:18
 
-# 安装MySQL客户端工具
+# 安装MySQL官方客户端工具
 RUN apt-get update && \
-    apt-get install -y mysql-client-8.0 mysql-server-core-8.0 && \
+    apt-get install -y apt-utils && \
+    apt-get install -y wget gnupg lsb-release && \
+    wget https://dev.mysql.com/get/mysql-apt-config_0.8.29-1_all.deb && \
+    DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.29-1_all.deb && \
+    apt-get update && \
+    apt-get install -y mysql-client  mysql-community-server && \
+    rm mysql-apt-config_0.8.29-1_all.deb && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    which mysqlbinlog && mysqlbinlog --version
+    rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录
 WORKDIR /app
