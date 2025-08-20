@@ -597,8 +597,15 @@ function formatValue(value) {
   // 转换为字符串并清理
   let cleanValue = value.toString().trim();
   
-  // 移除已有的引号和可能的异常字符
-  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '').replace(/\$\d+/g, '');
+  // 移除已有的引号
+  cleanValue = cleanValue.replace(/^['"]|['"]$/g, '');
+  
+  // 彻底清理所有可能的异常字符：$数字、特殊符号等
+  cleanValue = cleanValue
+    .replace(/\$\d+/g, '')           // 清理 $52 等
+    .replace(/[\x00-\x1F\x7F]/g, '') // 清理控制字符
+    .replace(/\\[nrt]/g, '')        // 清理转义字符
+    .trim();
   
   // 检查是否为数字（包括小数和负数）
   if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {

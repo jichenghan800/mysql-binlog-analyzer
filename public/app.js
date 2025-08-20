@@ -1472,18 +1472,7 @@ class BinlogAnalyzer {
             reuploadBtn.onclick = () => {
                 const fileInput = document.getElementById('fileInput');
                 if (fileInput) {
-                    // 重置文件输入
                     fileInput.value = '';
-                    // 显示上传区域和进度条
-                    const uploadArea = document.getElementById('uploadArea');
-                    const progressContainer = document.getElementById('uploadProgress');
-                    const doraemonIcon = document.getElementById('doraemonIcon');
-                    
-                    if (uploadArea) uploadArea.style.display = 'block';
-                    if (progressContainer) progressContainer.classList.add('d-none');
-                    if (doraemonIcon) doraemonIcon.classList.add('d-none');
-                    
-                    // 添加临时事件监听器
                     const handleFileChange = (e) => {
                         if (e.target.files.length > 0) {
                             this.uploadFile(e.target.files[0]);
