@@ -146,6 +146,11 @@ class BinlogAnalyzer {
         if (uploadSection) {
             uploadSection.style.display = 'none';
         }
+        // 显示机器猫图标
+        const doraemonIcon = document.getElementById('doraemonIcon');
+        if (doraemonIcon) {
+            doraemonIcon.classList.remove('d-none');
+        }
         progressContainer.classList.remove('d-none');
         progressBar.style.width = '0%';
         progressOverlay.textContent = '0%';
@@ -794,11 +799,11 @@ class BinlogAnalyzer {
         
         // 更新计数显示
         filteredCount.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center w-100">
+            <div class="d-flex justify-content-end align-items-center gap-3">
                 <span>${totalItems.toLocaleString()} 条记录</span>
                 <div class="d-flex align-items-center gap-2">
-                    <small class="text-muted">每页:</small>
-                    <select class="form-select form-select-sm text-muted" style="width: 70px; font-size: 0.8em; border-color: #e9ecef; background-color: #f8f9fa;" onchange="analyzer.changePageSize(this.value)">
+                    <span class="text-muted">每页</span>
+                    <select class="form-select form-select-sm" style="width: 65px;" onchange="analyzer.changePageSize(this.value)">
                         <option value="50" ${this.pageSize === 50 ? 'selected' : ''}>50</option>
                         <option value="100" ${this.pageSize === 100 ? 'selected' : ''}>100</option>
                         <option value="200" ${this.pageSize === 200 ? 'selected' : ''}>200</option>
@@ -806,7 +811,7 @@ class BinlogAnalyzer {
                         <option value="1000" ${this.pageSize === 1000 ? 'selected' : ''}>1000</option>
                     </select>
                 </div>
-                ${totalPages > 1 ? `<small class="text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</small>` : ''}
+                ${totalPages > 1 ? `<span class="text-muted">第 ${this.currentPage}/${totalPages} 页 (显示 ${startIndex + 1}-${endIndex})</span>` : ''}
             </div>
         `;
 
@@ -826,7 +831,6 @@ class BinlogAnalyzer {
                 <td>${op.database}</td>
                 <td>${op.table}</td>
                 <td><small>${transactionId}</small></td>
-                <td>${op.serverId || 'N/A'}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="analyzer.showOperationDetails(${pageIndex})">
                         <i class="fas fa-eye"></i> 查看详情
@@ -1041,13 +1045,10 @@ class BinlogAnalyzer {
                         </div>
                         <div class="modal-body">
                             <div class="row mb-3">
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <strong>时间:</strong> ${this.formatTimestamp(operation.timestamp)}
                                 </div>
-                                <div class="col-md-4">
-                                    <strong>服务器ID:</strong> ${operation.serverId || 'N/A'}
-                                </div>
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <strong>事务ID:</strong> ${operation.xid ? `Xid:${operation.xid}` : (operation.gtid ? `GTID:${operation.gtid}` : 'N/A')}
                                 </div>
                             </div>
@@ -1394,7 +1395,37 @@ class BinlogAnalyzer {
                 if (statsSection) {
                     statsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+                // 在标题旁添加重新上传按钮
+                this.addReuploadButton();
             }, 500);
+        }
+    }
+    
+    addReuploadButton() {
+        const titleRow = document.querySelector('.row .col-12 .d-flex');
+        if (titleRow && !document.getElementById('reuploadBtn')) {
+            const reuploadBtn = document.createElement('button');
+            reuploadBtn.id = 'reuploadBtn';
+            reuploadBtn.className = 'btn btn-outline-primary btn-sm';
+            reuploadBtn.innerHTML = '<i class="fas fa-upload"></i> 重新上传';
+            reuploadBtn.onclick = () => this.showUploadSection();
+            titleRow.insertBefore(reuploadBtn, titleRow.lastElementChild);
+        }
+    }
+    
+    showUploadSection() {
+        const uploadSection = document.querySelector('.row.mb-4');
+        if (uploadSection) {
+            uploadSection.style.display = 'block';
+            uploadSection.style.opacity = '0';
+            uploadSection.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                uploadSection.style.transition = 'all 0.5s ease';
+                uploadSection.style.opacity = '1';
+                uploadSection.style.transform = 'translateY(0)';
+                uploadSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 50);
         }
     }
     

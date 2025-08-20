@@ -147,6 +147,10 @@
                             <p class="text-muted">支持 MySQL binlog 文件 (.log, .bin, mysql-bin.*, 等)</p>
                             <input type="file" id="fileInput" class="d-none">
                         </div>
+                        <div class="text-center mb-3 d-none" id="doraemonIcon">
+                            <div style="font-size: 3rem; color: #0066cc;">🤖</div>
+                            <small class="text-muted">正在努力解析中...</small>
+                        </div>
                         <div class="progress mt-3 d-none" id="uploadProgress">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
                             <div class="progress-overlay" id="progressOverlay">0%</div>
@@ -271,9 +275,6 @@
                             <button class="btn btn-sm btn-outline-secondary me-2" onclick="analyzer.clearAllFilters()">
                                 <i class="fas fa-times"></i> 清空筛选
                             </button>
-                            <button class="btn btn-sm btn-outline-info me-2" onclick="analyzer.applyFilters()">
-                                <i class="fas fa-search"></i> 刷新
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -351,7 +352,6 @@
                                             </div>
                                         </th>
                                         <th>事务ID</th>
-                                        <th>服务器ID</th>
                                         <th>操作详情</th>
                                     </tr>
                                 </thead>
