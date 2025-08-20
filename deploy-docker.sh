@@ -128,16 +128,57 @@ echo "=== docker-compose.yml 服务配置 ==="
 grep -A 20 "services:" docker-compose.yml
 echo ""
 
-# 6. 检查端口占用
-log_info "步骤6: 检查端口占用..."
+# 6. 选择部署模式
+log_info "步骤6: 选择部署模式..."
 
-if netstat -tlnp | grep :5000 >/dev/null 2>&1; then
-    log_warning "端口5000被占用，尝试释放..."
-    sudo fuser -k 5000/tcp 2>/dev/null || true
+echo ""
+echo "==========================================="
+echo "🚀 选择部署模式"
+echo "==========================================="
+echo ""
+echo "请选择启动模式："
+echo "1) 内存存储模式 (适合小文件测试，端口5000)"
+echo "2) 数据库存储模式 (适合大文件生产环境，端口5000)"
+echo ""
+echo -n "请输入选择 (1 或 2): "
+read choice < /dev/tty
+echo "您选择了: $choice"
+
+# 根据选择设置变量
+case $choice in
+    1)
+        SERVICE_NAME="app"
+        BUILD_TARGET="app"
+        PROFILE_FLAG=""
+        CHECK_PORT=5000
+        ;;
+    2)
+        SERVICE_NAME="mysql-binlog-analyzer-db"
+        BUILD_TARGET="mysql-binlog-analyzer-db mysql"
+        PROFILE_FLAG="--profile with-database"
+        CHECK_PORT=5000
+        ;;
+    *)
+        log_error "无效选择，默认使用内存存储模式"
+        SERVICE_NAME="app"
+        BUILD_TARGET="app"
+        PROFILE_FLAG=""
+        CHECK_PORT=5000
+        ;;
+esac
+
+log_success "部署模式选择完成: $SERVICE_NAME"
+
+# 7. 检查端口占用
+log_info "步骤7: 检查端口占用..."
+
+if netstat -tlnp | grep :$CHECK_PORT >/dev/null 2>&1; then
+    log_warning "端口$CHECK_PORT被占用，尝试释放..."
+    sudo fuser -k $CHECK_PORT/tcp 2>/dev/null || true
     sleep 2
 fi
 
-if netstat -tlnp | grep :3306 >/dev/null 2>&1; then
+if [ "$choice" = "2" ] && netstat -tlnp | grep :3306 >/dev/null 2>&1; then
     log_warning "端口3306被占用，尝试释放..."
     sudo fuser -k 3306/tcp 2>/dev/null || true
     sleep 2
@@ -145,8 +186,8 @@ fi
 
 log_success "端口检查完成"
 
-# 7. 构建镜像
-log_info "步骤7: 构建Docker镜像..."
+# 8. 构建镜像
+log_info "步骤8: 构建Docker镜像..."
 
 # 彻底清理构建缓存和中间层
 log_info "清理Docker缓存..."
@@ -157,18 +198,26 @@ docker builder prune -a -f
 log_info "删除旧镜像..."
 docker images -a | grep mysql-binlog-analyzer | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
 docker images -a | grep "<none>" | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
-docker images -a | grep node | awk '{print $3}' | xargs docker rmi -f 2>/dev/null || true
 
 # 显示剩余镜像
 log_info "当前镜像列表:"
 docker images
 
-# 显示构建过程
-log_info "开始构建镜像（强制重新构建所有层）..."
+# 根据选择构建对应服务
+log_info "开始构建镜像（只构建选择的服务）..."
 echo "=== Docker构建输出 ==="
-if ! docker-compose build --no-cache --pull --force-rm; then
-    log_error "构建失败！请检查上面的错误信息"
-    exit 1
+if [ "$choice" = "1" ]; then
+    log_info "构建内存存储模式服务..."
+    if ! docker-compose build --no-cache --pull --force-rm app; then
+        log_error "构建失败！请检查上面的错误信息"
+        exit 1
+    fi
+else
+    log_info "构建数据库存储模式服务..."
+    if ! docker-compose $PROFILE_FLAG build --no-cache --pull --force-rm; then
+        log_error "构建失败！请检查上面的错误信息"
+        exit 1
+    fi
 fi
 echo "=== 构建完成 ==="
 
@@ -183,69 +232,29 @@ if ! docker images | grep mysql-binlog-analyzer; then
     exit 1
 fi
 
-# 测试镜像启动
-log_info "测试镜像启动..."
-# 获取实际构建的镜像名称
-IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep mysql-binlog-analyzer | head -1 | awk '{print $1}')
-if [ ! -z "$IMAGE_NAME" ]; then
-    TEST_CONTAINER=$(docker run -d --rm $IMAGE_NAME echo "test" 2>/dev/null || echo "")
-    if [ ! -z "$TEST_CONTAINER" ]; then
-        sleep 2
-        if docker logs $TEST_CONTAINER 2>/dev/null | grep -q "test"; then
-            log_success "镜像测试成功"
-        else
-            log_warning "镜像测试未能获取预期输出，但继续部署"
-        fi
-    else
-        log_warning "无法启动测试容器，但继续部署"
-    fi
-else
-    log_warning "未找到构建的镜像，但继续部署"
-fi
-
-# 8. 启动服务
-log_info "步骤8: 启动服务..."
-
-echo ""
-echo "==========================================="
-echo "🚀 选择部署模式"
-echo "==========================================="
-echo ""
-echo "请选择启动模式："
-echo "1) 内存存储模式 (适合小文件测试)"
-echo "2) 数据库存储模式 (适合大文件生产环境)"
-echo ""
-echo -n "请输入选择 (1 或 2): "
-read choice < /dev/tty
-echo "您选择了: $choice"
+# 9. 启动服务
+log_info "步骤9: 启动服务..."
 
 case $choice in
     1)
         log_info "启动内存存储模式..."
         docker-compose up -d app
-        SERVICE_NAME="app"
         ;;
     2)
         log_info "启动数据库存储模式..."
         docker-compose --profile with-database up -d
-        SERVICE_NAME="mysql-binlog-analyzer-db"
-        ;;
-    *)
-        log_error "无效选择，默认使用内存存储模式"
-        docker-compose up -d app
-        SERVICE_NAME="app"
         ;;
 esac
 
 log_success "服务启动完成"
 
-# 9. 等待服务就绪
-log_info "步骤9: 等待服务就绪..."
+# 10. 等待服务就绪
+log_info "步骤10: 等待服务就绪..."
 
 sleep 5
 
-# 10. 检查服务状态
-log_info "步骤10: 检查服务状态..."
+# 11. 检查服务状态
+log_info "步骤11: 检查服务状态..."
 
 echo "=== 容器状态 ==="
 docker-compose ps
@@ -260,8 +269,8 @@ fi
 
 echo ""
 
-# 11. 获取访问地址
-log_info "步骤11: 获取访问信息..."
+# 12. 获取访问地址
+log_info "步骤12: 获取访问信息..."
 
 # 获取服务器IP
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || hostname -I | awk '{print $1}')
@@ -270,16 +279,9 @@ echo ""
 echo "🎉 部署完成！"
 echo "=============="
 echo "📍 访问地址:"
-if [ "$choice" = "1" ]; then
-    echo "  本地访问: http://localhost:5001"
-    if [ ! -z "$SERVER_IP" ]; then
-        echo "  外网访问: http://$SERVER_IP:5001"
-    fi
-else
-    echo "  本地访问: http://localhost:5000"
-    if [ ! -z "$SERVER_IP" ]; then
-        echo "  外网访问: http://$SERVER_IP:5000"
-    fi
+echo "  本地访问: http://localhost:$CHECK_PORT"
+if [ ! -z "$SERVER_IP" ]; then
+    echo "  外网访问: http://$SERVER_IP:$CHECK_PORT"
 fi
 
 echo ""
@@ -303,15 +305,10 @@ echo "  1. 打开浏览器访问上述地址"
 echo "  2. 上传binlog文件进行分析"
 echo "  3. 查看解析结果和SQL语句"
 
-# 12. 最终检查
-log_info "步骤12: 最终健康检查..."
+# 13. 最终检查
+log_info "步骤13: 最终健康检查..."
 
 sleep 3
-
-CHECK_PORT=5000
-if [ "$choice" = "1" ]; then
-    CHECK_PORT=5001
-fi
 
 if curl -s http://localhost:$CHECK_PORT >/dev/null 2>&1; then
     log_success "✅ 服务运行正常，可以访问！"
