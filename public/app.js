@@ -240,6 +240,9 @@ class BinlogAnalyzer {
                 this.sessionId = result.sessionId; // 保存 sessionId 用于后续分页查询
                 this.displayResults();
                 
+                // 上传成功后隐藏上传区域，使页面更美观
+                this.hideUploadSection();
+                
                 let message = `文件解析成功！耗时 ${duration} 秒，找到 ${result.total} 个操作`;
                 if (result.memoryUsage) {
                     message += `，内存使用 ${result.memoryUsage.heapUsed} MB`;
@@ -1375,6 +1378,24 @@ class BinlogAnalyzer {
         
         this.showNotification('已清空所有筛选条件', 'success');
         this.applyFilters();
+    }
+    
+    hideUploadSection() {
+        const uploadSection = document.querySelector('.row.mb-4');
+        if (uploadSection && uploadSection.querySelector('#uploadArea')) {
+            uploadSection.style.transition = 'all 0.5s ease';
+            uploadSection.style.transform = 'translateY(-20px)';
+            uploadSection.style.opacity = '0';
+            
+            setTimeout(() => {
+                uploadSection.style.display = 'none';
+                // 滚动到统计信息区域
+                const statsSection = document.getElementById('statsSection');
+                if (statsSection) {
+                    statsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 500);
+        }
     }
     
     showNotification(message, type) {
