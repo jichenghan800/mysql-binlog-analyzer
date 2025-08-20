@@ -162,6 +162,7 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   let operationTimestamp = null; // 为当前操作保留的时间戳
   let currentXid = null; // 当前事务ID
   let currentGtid = null; // 当前GTID
+  let debugCount = 0; // 调试计数器
   
   console.log(`开始解析 ${totalLines} 行binlog输出...`);
   
@@ -422,10 +423,11 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         let originalValue = columnMatch[2];
         let value = originalValue;
         
-        // 调试：只记录包含$符号的值
-        if (originalValue && originalValue.includes('$')) {
-          console.log(`[调试] 原始行: ${line}`);
-          console.log(`[调试] 列${columnIndex} 原始值: "${originalValue}" (类型: ${typeof originalValue})`);
+        // 调试：只记录包含$符号的值，限制输出数量
+        if (originalValue && originalValue.includes('$') && debugCount < 10) {
+          debugCount++;
+          console.log(`[调试 ${debugCount}] 原始行: ${line}`);
+          console.log(`[调试 ${debugCount}] 列${columnIndex} 原始值: "${originalValue}" (类型: ${typeof originalValue})`);
         }
         
         // 只清理明显的控制字符，保留$数字等可能的有效内容
@@ -436,16 +438,16 @@ function parseOperations(binlogOutput, progressSessionId = null) {
             .trim();
           
           // 调试：只记录包含$符号的值的变化
-          if (beforeClean !== value && originalValue.includes('$')) {
-            console.log(`[调试] 列${columnIndex} 清理前: "${beforeClean}"`);
-            console.log(`[调试] 列${columnIndex} 清理后: "${value}"`);
+          if (beforeClean !== value && originalValue.includes('$') && debugCount <= 10) {
+            console.log(`[调试 ${debugCount}] 列${columnIndex} 清理前: "${beforeClean}"`);
+            console.log(`[调试 ${debugCount}] 列${columnIndex} 清理后: "${value}"`);
           }
         }
         
         // 调试：只记录包含$符号的最终值
-        if (originalValue && originalValue.includes('$')) {
-          console.log(`[调试] 列${columnIndex} 最终值: "${value}" (类型: ${typeof value})`);
-          console.log(`[调试] ---`);
+        if (originalValue && originalValue.includes('$') && debugCount <= 10) {
+          console.log(`[调试 ${debugCount}] 列${columnIndex} 最终值: "${value}" (类型: ${typeof value})`);
+          console.log(`[调试 ${debugCount}] ---`);
         }
         
         if (currentOperation.type === 'UPDATE') {
@@ -611,17 +613,20 @@ function generateDeleteSQL(tableName, conditions) {
 }
 
 // 格式化值
+let formatDebugCount = 0;
 function formatValue(value) {
   if (value === null || value === 'NULL' || value === undefined) {
     return 'NULL';
   }
   
-  // 调试：只记录包含$符号或可疑数字的值
+  // 调试：只记录包含$符号或可疑数字的值，限制数量
   const originalValue = value;
   const shouldDebug = originalValue && (originalValue.toString().includes('$') || 
-                      originalValue.toString() === '26' || originalValue.toString() === '52');
+                      originalValue.toString() === '26' || originalValue.toString() === '52') &&
+                      formatDebugCount < 5;
   if (shouldDebug) {
-    console.log(`[格式化调试] 输入值: "${originalValue}" (类型: ${typeof originalValue})`);
+    formatDebugCount++;
+    console.log(`[格式化调试 ${formatDebugCount}] 输入值: "${originalValue}" (类型: ${typeof originalValue})`);
   }
   
   // 转换为字符串并清理
