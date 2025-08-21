@@ -41,7 +41,6 @@ class DatabaseManager {
                 database_name VARCHAR(64) NOT NULL,
                 table_name VARCHAR(64) NOT NULL,
                 timestamp DATETIME,
-                server_id BIGINT,
                 set_values JSON,
                 where_conditions JSON,
                 operation_values JSON,
@@ -69,7 +68,7 @@ class DatabaseManager {
             
             if (xidColumns.length === 0) {
                 console.log('添加xid字段...');
-                await this.connection.execute('ALTER TABLE binlog_operations ADD COLUMN xid VARCHAR(32) AFTER server_id');
+                await this.connection.execute('ALTER TABLE binlog_operations ADD COLUMN xid VARCHAR(32) AFTER timestamp');
                 await this.connection.execute('ALTER TABLE binlog_operations ADD INDEX idx_xid (xid)');
             }
             
@@ -104,9 +103,9 @@ class DatabaseManager {
         try {
             const insertSQL = `
                 INSERT INTO binlog_operations 
-                (session_id, type, database_name, table_name, timestamp, server_id, xid, gtid,
+                (session_id, type, database_name, table_name, timestamp, xid, gtid,
                  set_values, where_conditions, operation_values, original_sql, reverse_sql)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             // 自适应批次大小：根据操作数量和服务器配置调整
@@ -135,7 +134,6 @@ class DatabaseManager {
                         op.database,
                         op.table,
                         op.timestamp,
-                        op.serverId ? parseInt(op.serverId) || null : null,
                         op.xid || null,
                         op.gtid || null,
                         JSON.stringify(op.setValues || []),
@@ -146,10 +144,10 @@ class DatabaseManager {
                     ]);
                     
                     // 构建批量插入 SQL
-                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
                     const batchInsertSQL = `
                         INSERT INTO binlog_operations 
-                        (session_id, type, database_name, table_name, timestamp, server_id, xid, gtid,
+                        (session_id, type, database_name, table_name, timestamp, xid, gtid,
                          set_values, where_conditions, operation_values, original_sql, reverse_sql)
                         VALUES ${placeholders}
                     `;
@@ -313,7 +311,6 @@ class DatabaseManager {
                     database: row.database_name,
                     table: row.table_name,
                     timestamp: row.timestamp,
-                    serverId: row.server_id,
                     xid: row.xid,
                     gtid: row.gtid,
                     setValues: parseJsonSafely(row.set_values, []),
