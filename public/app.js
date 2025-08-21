@@ -953,25 +953,34 @@ class BinlogAnalyzer {
         // 更精确的字段值提取函数
         const extractFieldValues = (sql) => {
             const fieldValues = new Map();
-            // 更精确的匹配模式，避免部分匹配
-            const patterns = [
-                /(\w+)\s*=\s*'([^']*)'/g,  // 单引号字符串
-                /(\w+)\s*=\s*"([^"]*)"/g,  // 双引号字符串
-                /(\w+)\s*=\s*(\d+(?:\.\d+)?)/g,  // 数字（整数或小数）
-                /(\w+)\s*=\s*(NULL)/g   // NULL值
-            ];
+            // 使用单一正则表达式避免重叠匹配
+            const pattern = /(\w+)\s*=\s*(?:'([^']*)'|"([^"]*)"|NULL|(\d+(?:\.\d+)?)(?=\s|,|\)|;|$))/g;
             
-            patterns.forEach(pattern => {
-                let match;
-                const regex = new RegExp(pattern.source, pattern.flags);
-                while ((match = regex.exec(sql)) !== null) {
-                    const field = match[1].trim();
-                    const value = match[2].trim();
-                    if (!fieldValues.has(field)) {
-                        fieldValues.set(field, value);
-                    }
+            let match;
+            while ((match = pattern.exec(sql)) !== null) {
+                const field = match[1].trim();
+                let value;
+                
+                if (match[2] !== undefined) {
+                    // 单引号字符串
+                    value = match[2];
+                } else if (match[3] !== undefined) {
+                    // 双引号字符串
+                    value = match[3];
+                } else if (match[0].includes('NULL')) {
+                    // NULL值
+                    value = 'NULL';
+                } else if (match[4] !== undefined) {
+                    // 数字
+                    value = match[4];
+                } else {
+                    continue;
                 }
-            });
+                
+                if (!fieldValues.has(field)) {
+                    fieldValues.set(field, value.trim());
+                }
+            }
             
             return fieldValues;
         };
@@ -1010,17 +1019,17 @@ class BinlogAnalyzer {
                 const escapedOriginalValue = this.escapeRegex(originalValue);
                 const escapedReverseValue = this.escapeRegex(reverseValue);
                 
-                // 高亮原始SQL中的值（使用单词边界确保完整匹配）
-                if (originalValue.match(/^\d+(\.\d+)?$/)) {
-                    // 数字值：确保完整匹配，避免部分替换
-                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedOriginalValue})(?=\\s|,|\\)|;|$)`, 'g');
-                    highlightedOriginal = highlightedOriginal.replace(numberPattern, 
-                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>`);
-                } else if (originalValue === 'NULL') {
-                    // NULL值
+                // 高亮原始SQL中的值（使用精确匹配避免重叠）
+                if (originalValue === 'NULL') {
+                    // NULL值：使用单词边界确保精确匹配
                     const nullPattern = new RegExp(`(${escapedField}\\s*=\\s*)(NULL)(?=\\s|,|\\)|;|$)`, 'g');
                     highlightedOriginal = highlightedOriginal.replace(nullPattern, 
                         `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">NULL</span>`);
+                } else if (originalValue.match(/^\d+(\.\d+)?$/)) {
+                    // 数字值：使用严格边界匹配
+                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedOriginalValue})(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedOriginal = highlightedOriginal.replace(numberPattern, 
+                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>`);
                 } else {
                     // 字符串值
                     const stringPattern = new RegExp(`(${escapedField}\\s*=\\s*')${escapedOriginalValue}(')`, 'g');
@@ -1029,16 +1038,16 @@ class BinlogAnalyzer {
                 }
                 
                 // 高亮回滚SQL中的值
-                if (reverseValue.match(/^\d+(\.\d+)?$/)) {
-                    // 数字值
-                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedReverseValue})(?=\\s|,|\\)|;|$)`, 'g');
-                    highlightedReverse = highlightedReverse.replace(numberPattern, 
-                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>`);
-                } else if (reverseValue === 'NULL') {
-                    // NULL值
+                if (reverseValue === 'NULL') {
+                    // NULL值：使用单词边界确保精确匹配
                     const nullPattern = new RegExp(`(${escapedField}\\s*=\\s*)(NULL)(?=\\s|,|\\)|;|$)`, 'g');
                     highlightedReverse = highlightedReverse.replace(nullPattern, 
                         `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">NULL</span>`);
+                } else if (reverseValue.match(/^\d+(\.\d+)?$/)) {
+                    // 数字值：使用严格边界匹配
+                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedReverseValue})(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedReverse = highlightedReverse.replace(numberPattern, 
+                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>`);
                 } else {
                     // 字符串值
                     const stringPattern = new RegExp(`(${escapedField}\\s*=\\s*')${escapedReverseValue}(')`, 'g');

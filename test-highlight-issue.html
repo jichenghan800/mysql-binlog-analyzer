@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试高亮问题</title>
+</head>
+<body>
+    <h3>测试高亮逻辑问题</h3>
+    
+    <div id="test1">
+        <h4>测试1: 原始SQL</h4>
+        <code>UPDATE table SET col_17 = 1755467090.301 WHERE col_1 = 123;</code>
+    </div>
+    
+    <div id="test2">
+        <h4>测试2: 回滚SQL</h4>
+        <code>UPDATE table SET col_17 = 1755467014.883 WHERE col_1 = 123;</code>
+    </div>
+    
+    <div id="result">
+        <h4>高亮结果:</h4>
+        <div id="original"></div>
+        <div id="reverse"></div>
+    </div>
+
+    <script>
+        // 复制前端的高亮逻辑进行测试
+        function escapeRegex(string) {
+            if (!string) return '';
+            return string.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function highlightSQLDifferences(originalSQL, reverseSQL) {
+            if (!originalSQL || !reverseSQL) {
+                return {
+                    original: originalSQL || '无法生成SQL',
+                    reverse: reverseSQL || '无法生成回滚SQL'
+                };
+            }
+
+            // 提取字段值
+            const extractFieldValues = (sql) => {
+                const fieldValues = new Map();
+                const patterns = [
+                    /(\\w+)\\s*=\\s*'([^']*)'/g,  // 单引号字符串
+                    /(\\w+)\\s*=\\s*"([^"]*)"/g,  // 双引号字符串
+                    /(\\w+)\\s*=\\s*(\\d+(?:\\.\\d+)?)/g,  // 数字（整数或小数）
+                    /(\\w+)\\s*=\\s*(NULL)/g   // NULL值
+                ];
+                
+                patterns.forEach(pattern => {
+                    let match;
+                    const regex = new RegExp(pattern.source, pattern.flags);
+                    while ((match = regex.exec(sql)) !== null) {
+                        const field = match[1].trim();
+                        const value = match[2].trim();
+                        if (!fieldValues.has(field)) {
+                            fieldValues.set(field, value);
+                        }
+                    }
+                });
+                
+                return fieldValues;
+            };
+
+            const originalFields = extractFieldValues(originalSQL);
+            const reverseFields = extractFieldValues(reverseSQL);
+
+            console.log('原始字段:', originalFields);
+            console.log('回滚字段:', reverseFields);
+
+            let highlightedOriginal = originalSQL;
+            let highlightedReverse = reverseSQL;
+
+            // 找出不同的字段
+            const differentFields = new Set();
+            
+            originalFields.forEach((value, field) => {
+                const reverseValue = reverseFields.get(field);
+                if (reverseValue && value !== reverseValue) {
+                    differentFields.add(field);
+                }
+            });
+
+            console.log('不同字段:', differentFields);
+
+            // 高亮不同的值
+            differentFields.forEach(field => {
+                const originalValue = originalFields.get(field);
+                const reverseValue = reverseFields.get(field);
+                
+                console.log(`处理字段 ${field}: ${originalValue} vs ${reverseValue}`);
+                
+                if (originalValue && reverseValue && originalValue !== reverseValue) {
+                    const escapedField = escapeRegex(field);
+                    const escapedOriginalValue = escapeRegex(originalValue);
+                    const escapedReverseValue = escapeRegex(reverseValue);
+                    
+                    // 数字值：确保完整匹配
+                    if (originalValue.match(/^\\d+(\\.\\d+)?$/)) {
+                        const numberPattern = new RegExp(`(${escapedField}\\\\s*=\\\\s*)(${escapedOriginalValue})(?=\\\\s|,|\\\\)|;|$)`, 'g');
+                        console.log('原始数字模式:', numberPattern);
+                        highlightedOriginal = highlightedOriginal.replace(numberPattern, 
+                            `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold;">${originalValue}</span>`);
+                    }
+                    
+                    if (reverseValue.match(/^\\d+(\\.\\d+)?$/)) {
+                        const numberPattern = new RegExp(`(${escapedField}\\\\s*=\\\\s*)(${escapedReverseValue})(?=\\\\s|,|\\\\)|;|$)`, 'g');
+                        console.log('回滚数字模式:', numberPattern);
+                        highlightedReverse = highlightedReverse.replace(numberPattern, 
+                            `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold;">${reverseValue}</span>`);
+                    }
+                }
+            });
+
+            return {
+                original: highlightedOriginal,
+                reverse: highlightedReverse
+            };
+        }
+
+        // 测试
+        const originalSQL = "UPDATE table SET col_17 = 1755467090.301 WHERE col_1 = 123;";
+        const reverseSQL = "UPDATE table SET col_17 = 1755467014.883 WHERE col_1 = 123;";
+        
+        const result = highlightSQLDifferences(originalSQL, reverseSQL);
+        
+        document.getElementById('original').innerHTML = result.original;
+        document.getElementById('reverse').innerHTML = result.reverse;
+        
+        console.log('测试完成');
+    </script>
+</body>
+</html>
