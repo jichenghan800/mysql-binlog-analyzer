@@ -15,7 +15,12 @@ class DatabaseManager {
                 host: process.env.DB_HOST || 'localhost',
                 user: process.env.DB_USER || 'root',
                 password: process.env.DB_PASSWORD || '',
-                database: process.env.DB_NAME || 'binlog_analyzer'
+                database: process.env.DB_NAME || 'binlog_analyzer',
+                acquireTimeout: 60000,
+                timeout: 60000,
+                reconnect: true,
+                idleTimeout: 300000,
+                maxReconnects: 3
             });
             
             await this.initTables();
@@ -84,8 +89,17 @@ class DatabaseManager {
     }
 
     async saveOperations(sessionId, operations, progressSessionId = null) {
-        if (!this.useDatabase || !this.connection) {
+        if (!this.useDatabase) {
             return false;
+        }
+        
+        // 检查连接状态，如果连接关闭则重新连接
+        if (!this.connection || this.connection.connection._closing) {
+            console.log('数据库连接已关闭，尝试重新连接...');
+            await this.connect();
+            if (!this.connection) {
+                return false;
+            }
         }
 
         try {
@@ -178,8 +192,17 @@ class DatabaseManager {
     }
 
     async getOperations(sessionId, options = {}) {
-        if (!this.useDatabase || !this.connection) {
+        if (!this.useDatabase) {
             return null;
+        }
+        
+        // 检查连接状态
+        if (!this.connection || this.connection.connection._closing) {
+            console.log('数据库连接已关闭，尝试重新连接...');
+            await this.connect();
+            if (!this.connection) {
+                return null;
+            }
         }
 
         try {
@@ -394,8 +417,17 @@ class DatabaseManager {
     }
 
     async getFilterOptions(sessionId) {
-        if (!this.useDatabase || !this.connection) {
+        if (!this.useDatabase) {
             return null;
+        }
+        
+        // 检查连接状态
+        if (!this.connection || this.connection.connection._closing) {
+            console.log('数据库连接已关闭，尝试重新连接...');
+            await this.connect();
+            if (!this.connection) {
+                return null;
+            }
         }
 
         try {
@@ -426,8 +458,17 @@ class DatabaseManager {
     }
 
     async truncateTable() {
-        if (!this.useDatabase || !this.connection) {
+        if (!this.useDatabase) {
             return false;
+        }
+        
+        // 检查连接状态
+        if (!this.connection || this.connection.connection._closing) {
+            console.log('数据库连接已关闭，尝试重新连接...');
+            await this.connect();
+            if (!this.connection) {
+                return false;
+            }
         }
 
         try {
