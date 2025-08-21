@@ -133,14 +133,9 @@ fi
 # 4. 创建工作目录
 log_info "步骤4: 创建工作目录..."
 
-# 切换到/opt目录（如果有权限）或用户主目录
-if [ -w "/opt" ] || sudo test -w "/opt" 2>/dev/null; then
-    WORK_DIR="/opt"
-    log_info "使用/opt作为工作目录"
-else
-    WORK_DIR="$HOME"
-    log_info "使用$HOME作为工作目录"
-fi
+# 默认使用用户主目录，更安全且不需要特殊权限
+WORK_DIR="$HOME"
+log_info "使用$HOME作为工作目录"
 
 cd "$WORK_DIR"
 
@@ -156,11 +151,7 @@ if [ -d "mysql-binlog-analyzer" ]; then
     cd ..
     
     # 删除旧目录
-    if [ "$WORK_DIR" = "/opt" ]; then
-        sudo rm -rf mysql-binlog-analyzer
-    else
-        rm -rf mysql-binlog-analyzer
-    fi
+    rm -rf mysql-binlog-analyzer
 fi
 
 log_success "工作目录准备完成: $WORK_DIR"
@@ -180,11 +171,7 @@ chmod +x deploy-docker.sh
 
 # 执行部署脚本
 log_info "执行Docker部署脚本..."
-if [ "$WORK_DIR" = "/opt" ]; then
-    sudo ./deploy-docker.sh
-else
-    ./deploy-docker.sh
-fi
+./deploy-docker.sh
 
 # 6. 设置防火墙规则（如果需要）
 log_info "步骤6: 配置防火墙..."

@@ -41,7 +41,7 @@
 
 ```bash
 # Linux/macOS 完整一键部署（包含环境准备）
-cd /opt && rm -rf mysql-binlog-analyzer && wget -O deploy-one-click.sh https://raw.githubusercontent.com/jichenghan800/mysql-binlog-analyzer/main/deploy-one-click.sh && chmod +x deploy-one-click.sh && sudo ./deploy-one-click.sh
+cd ~ && rm -rf mysql-binlog-analyzer && wget -O deploy-one-click.sh https://raw.githubusercontent.com/jichenghan800/mysql-binlog-analyzer/main/deploy-one-click.sh && chmod +x deploy-one-click.sh && ./deploy-one-click.sh
 
 # 或者简化版（需要预先安装Docker）
 curl -fsSL https://raw.githubusercontent.com/jichenghan800/mysql-binlog-analyzer/main/deploy-docker.sh | bash
