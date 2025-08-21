@@ -1195,7 +1195,7 @@ class BinlogAnalyzer {
                                             <div class="bg-light p-3 rounded" style="border-left: 4px solid #28a745;">
                                                 <code style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;">${highlightedSQL.original}</code>
                                             </div>
-                                            <button class="btn btn-sm btn-outline-primary mt-2" onclick="analyzer.copyToClipboard('${operation.originalSQL?.replace(/'/g, "\\'")}')">
+                                            <button class="btn btn-sm btn-outline-primary mt-2" onclick="analyzer.copyToClipboard(\`${operation.originalSQL?.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">
                                                 <i class="fas fa-copy"></i> 复制原始SQL
                                             </button>
                                         </div>
@@ -1207,7 +1207,7 @@ class BinlogAnalyzer {
                                             <div class="bg-light p-3 rounded" style="border-left: 4px solid #dc3545;">
                                                 <code style="white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word;">${highlightedSQL.reverse}</code>
                                             </div>
-                                            <button class="btn btn-sm btn-outline-warning mt-2" onclick="analyzer.copyToClipboard('${operation.reverseSQL?.replace(/'/g, "\\'")}')">
+                                            <button class="btn btn-sm btn-outline-warning mt-2" onclick="analyzer.copyToClipboard(\`${operation.reverseSQL?.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">
                                                 <i class="fas fa-copy"></i> 复制回滚SQL
                                             </button>
                                         </div>
@@ -1283,7 +1283,7 @@ class BinlogAnalyzer {
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-primary" onclick="analyzer.copyToClipboard('${sql?.replace(/'/g, "\\'")}')">
+                            <button type="button" class="btn btn-outline-primary" onclick="analyzer.copyToClipboard(\`${sql?.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">
                                 <i class="fas fa-copy"></i> 复制SQL
                             </button>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
