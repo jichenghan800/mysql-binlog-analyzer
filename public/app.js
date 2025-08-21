@@ -941,7 +941,7 @@ class BinlogAnalyzer {
         }
     }
 
-    // 高亮SQL中的不同值
+    // 高亮SQL中的不同值（修复版本，避免破坏数值）
     highlightSQLDifferences(originalSQL, reverseSQL) {
         if (!originalSQL || !reverseSQL) {
             return {
@@ -950,19 +950,21 @@ class BinlogAnalyzer {
             };
         }
 
-        // 更强大的字段值提取函数，支持引号、特殊字符等
+        // 更精确的字段值提取函数
         const extractFieldValues = (sql) => {
             const fieldValues = new Map();
-            // 匹配 field = value 模式，支持引号包围的值
+            // 更精确的匹配模式，避免部分匹配
             const patterns = [
                 /(\w+)\s*=\s*'([^']*)'/g,  // 单引号字符串
                 /(\w+)\s*=\s*"([^"]*)"/g,  // 双引号字符串
-                /(\w+)\s*=\s*([^,\s)]+)/g   // 无引号值
+                /(\w+)\s*=\s*(\d+(?:\.\d+)?)/g,  // 数字（整数或小数）
+                /(\w+)\s*=\s*(NULL)/g   // NULL值
             ];
             
             patterns.forEach(pattern => {
                 let match;
-                while ((match = pattern.exec(sql)) !== null) {
+                const regex = new RegExp(pattern.source, pattern.flags);
+                while ((match = regex.exec(sql)) !== null) {
                     const field = match[1].trim();
                     const value = match[2].trim();
                     if (!fieldValues.has(field)) {
@@ -997,35 +999,52 @@ class BinlogAnalyzer {
             }
         });
 
-        // 高亮不同的值
+        // 高亮不同的值（使用更精确的匹配）
         differentFields.forEach(field => {
             const originalValue = originalFields.get(field);
             const reverseValue = reverseFields.get(field);
             
             if (originalValue && reverseValue && originalValue !== reverseValue) {
-                // 高亮原始SQL中的值（绿色背景）
-                const originalPatterns = [
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*')${this.escapeRegex(originalValue)}(')`,'gi'),
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*")${this.escapeRegex(originalValue)}(")`,'gi'),
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)${this.escapeRegex(originalValue)}(?=[,\\s)]|$)`,'gi')
-                ];
+                // 转义特殊字符
+                const escapedField = this.escapeRegex(field);
+                const escapedOriginalValue = this.escapeRegex(originalValue);
+                const escapedReverseValue = this.escapeRegex(reverseValue);
                 
-                originalPatterns.forEach(pattern => {
-                    highlightedOriginal = highlightedOriginal.replace(pattern, 
-                        (match, p1, p2) => `${p1}<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>${p2 || ''}`);
-                });
+                // 高亮原始SQL中的值（使用单词边界确保完整匹配）
+                if (originalValue.match(/^\d+(\.\d+)?$/)) {
+                    // 数字值：确保完整匹配，避免部分替换
+                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedOriginalValue})(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedOriginal = highlightedOriginal.replace(numberPattern, 
+                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>`);
+                } else if (originalValue === 'NULL') {
+                    // NULL值
+                    const nullPattern = new RegExp(`(${escapedField}\\s*=\\s*)(NULL)(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedOriginal = highlightedOriginal.replace(nullPattern, 
+                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">NULL</span>`);
+                } else {
+                    // 字符串值
+                    const stringPattern = new RegExp(`(${escapedField}\\s*=\\s*')${escapedOriginalValue}(')`, 'g');
+                    highlightedOriginal = highlightedOriginal.replace(stringPattern, 
+                        `$1<span style="background-color: #d4edda; color: #155724; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #c3e6cb;">${originalValue}</span>$2`);
+                }
                 
-                // 高亮回滚SQL中的值（红色背景）
-                const reversePatterns = [
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*')${this.escapeRegex(reverseValue)}(')`,'gi'),
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*")${this.escapeRegex(reverseValue)}(")`,'gi'),
-                    new RegExp(`(${this.escapeRegex(field)}\\s*=\\s*)${this.escapeRegex(reverseValue)}(?=[,\\s)]|$)`,'gi')
-                ];
-                
-                reversePatterns.forEach(pattern => {
-                    highlightedReverse = highlightedReverse.replace(pattern, 
-                        (match, p1, p2) => `${p1}<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>${p2 || ''}`);
-                });
+                // 高亮回滚SQL中的值
+                if (reverseValue.match(/^\d+(\.\d+)?$/)) {
+                    // 数字值
+                    const numberPattern = new RegExp(`(${escapedField}\\s*=\\s*)(${escapedReverseValue})(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedReverse = highlightedReverse.replace(numberPattern, 
+                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>`);
+                } else if (reverseValue === 'NULL') {
+                    // NULL值
+                    const nullPattern = new RegExp(`(${escapedField}\\s*=\\s*)(NULL)(?=\\s|,|\\)|;|$)`, 'g');
+                    highlightedReverse = highlightedReverse.replace(nullPattern, 
+                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">NULL</span>`);
+                } else {
+                    // 字符串值
+                    const stringPattern = new RegExp(`(${escapedField}\\s*=\\s*')${escapedReverseValue}(')`, 'g');
+                    highlightedReverse = highlightedReverse.replace(stringPattern, 
+                        `$1<span style="background-color: #f8d7da; color: #721c24; padding: 2px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #f5c6cb;">${reverseValue}</span>$2`);
+                }
             }
         });
 
