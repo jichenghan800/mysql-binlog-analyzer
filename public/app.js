@@ -1499,9 +1499,24 @@ class BinlogAnalyzer {
             demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载Demo中...';
             
             // 获取test-binlog.log文件
-            const response = await fetch('/test-data/test-binlog.log');
+            const response = await fetch('/test-binlog.log');
             if (!response.ok) {
-                throw new Error('无法加载Demo文件');
+                // 尝试备用路径
+                const fallbackResponse = await fetch('/test-data/test-binlog.log');
+                if (!fallbackResponse.ok) {
+                    throw new Error('无法加载Demo文件，请检查文件是否存在');
+                }
+                const blob = await fallbackResponse.blob();
+                const file = new File([blob], 'test-binlog.log', { type: 'text/plain' });
+                
+                // 恢复按钮状态
+                demoBtn.disabled = false;
+                demoBtn.innerHTML = originalText;
+                
+                // 上传文件
+                this.showNotification('正在加载Demo数据...', 'success');
+                await this.uploadFile(file);
+                return;
             }
             
             const blob = await response.blob();
