@@ -23,6 +23,7 @@ app.use(cors());
 app.use(express.json({ limit: '2gb' })); // 增加JSON请求体大小限制到2GB
 app.use(express.urlencoded({ limit: '2gb', extended: true })); // 增加URL编码请求体大小限制到2GB
 app.use(express.static('public'));
+app.use('/test-data', express.static('test-data'));
 
 // 配置文件上传
 const storage = multer.diskStorage({

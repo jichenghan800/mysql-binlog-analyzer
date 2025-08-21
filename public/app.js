@@ -15,8 +15,14 @@ class BinlogAnalyzer {
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
 
-        // 文件上传事件
-        uploadArea.addEventListener('click', () => fileInput.click());
+        // 文件上传事件 - 排除Demo按钮的点击
+        uploadArea.addEventListener('click', (e) => {
+            // 如果点击的是Demo按钮或其子元素，不触发文件选择
+            if (e.target.closest('#demoBtn')) {
+                return;
+            }
+            fileInput.click();
+        });
         uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
         uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
         uploadArea.addEventListener('drop', this.handleDrop.bind(this));
@@ -305,6 +311,9 @@ class BinlogAnalyzer {
         document.getElementById('statsSection').classList.remove('d-none');
         document.getElementById('filterSection').classList.remove('d-none');
         document.getElementById('operationsSection').classList.remove('d-none');
+        
+        // 显示重新上传按钮
+        document.getElementById('reuploadBtn').classList.remove('d-none');
     }
 
     async setTimeRangeFromDatabase() {
@@ -1480,6 +1489,44 @@ class BinlogAnalyzer {
         }
     }
     
+
+    async loadDemo() {
+        try {
+            // 显示加载状态
+            const demoBtn = document.getElementById('demoBtn');
+            const originalText = demoBtn.innerHTML;
+            demoBtn.disabled = true;
+            demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载Demo中...';
+            
+            // 获取test-binlog.log文件
+            const response = await fetch('/test-data/test-binlog.log');
+            if (!response.ok) {
+                throw new Error('无法加载Demo文件');
+            }
+            
+            const blob = await response.blob();
+            const file = new File([blob], 'test-binlog.log', { type: 'text/plain' });
+            
+            // 恢复按钮状态
+            demoBtn.disabled = false;
+            demoBtn.innerHTML = originalText;
+            
+            // 上传文件
+            this.showNotification('正在加载Demo数据...', 'success');
+            await this.uploadFile(file);
+            
+        } catch (error) {
+            console.error('Demo加载失败:', error);
+            this.showNotification('Demo加载失败: ' + error.message, 'error');
+            
+            // 恢复按钮状态
+            const demoBtn = document.getElementById('demoBtn');
+            if (demoBtn) {
+                demoBtn.disabled = false;
+                demoBtn.innerHTML = '<img src="/icon.svg" alt="Demo" style="width: 16px; height: 16px; margin-right: 6px; vertical-align: middle;"> Demo 演示';
+            }
+        }
+    }
 
     showNotification(message, type) {
         const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';

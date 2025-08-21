@@ -155,9 +155,18 @@
                         <i class="fas fa-database text-primary"></i>
                         MySQL Binlog 分析工具
                     </h1>
-                    <a href="help.html" class="btn btn-outline-info">
-                        <i class="fas fa-question-circle"></i> 使用帮助
-                    </a>
+                    <div>
+                        <button class="btn btn-info btn-sm me-2" id="demoBtn" onclick="analyzer.loadDemo()">
+                            <img src="/icon.svg" alt="Demo" style="width: 16px; height: 16px; margin-right: 6px; vertical-align: middle;">
+                            Demo 演示
+                        </button>
+                        <button class="btn btn-outline-success me-2 d-none" id="reuploadBtn" onclick="location.reload()">
+                            <i class="fas fa-upload"></i> 重新上传
+                        </button>
+                        <a href="help.html" class="btn btn-outline-info">
+                            <i class="fas fa-question-circle"></i> 使用帮助
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -175,6 +184,7 @@
                             <h5>拖拽文件到此处或点击选择文件</h5>
                             <p class="text-muted">支持 MySQL binlog 文件 (.log, .bin, mysql-bin.*, 等)</p>
                             <input type="file" id="fileInput" class="d-none">
+
                         </div>
                         <div class="text-center mb-3 d-none" id="doraemonIcon">
                             <img src="/icon.svg" alt="加载中" style="width: 60px; height: 60px; object-fit: contain; animation: pulse 2s infinite;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
