@@ -1,6 +1,8 @@
 node_modules/
 uploads/
 *.log
+# 但保留测试文件
+!test-data/*.log
 .env
 .DS_Store
 *.tmp
