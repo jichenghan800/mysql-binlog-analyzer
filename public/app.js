@@ -312,8 +312,9 @@ class BinlogAnalyzer {
         document.getElementById('filterSection').classList.remove('d-none');
         document.getElementById('operationsSection').classList.remove('d-none');
         
-        // 显示重新上传按钮
+        // 显示重新上传按钮，隐藏Demo按钮
         document.getElementById('reuploadBtn').classList.remove('d-none');
+        document.getElementById('demoBtn').classList.add('d-none');
     }
 
     async setTimeRangeFromDatabase() {
