@@ -429,6 +429,10 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         if (rawValue === 'NULL') {
           // 精确匹配NULL
           value = null;
+        } else if (/^NULL.+/.test(rawValue)) {
+          // 检测NULL后跟字符的情况（如NULL385）
+          console.warn(`修复NULL后跟字符: 列${columnIndex} "${rawValue}" -> NULL`);
+          value = null;
         } else if (rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length >= 2) {
           // 完整的引号字符串
           value = rawValue.slice(1, -1);
@@ -437,16 +441,19 @@ function parseOperations(binlogOutput, progressSessionId = null) {
         } else if (/^-?\d+(\.\d+)?$/.test(rawValue)) {
           // 纯数字（整数或小数）
           value = rawValue;
+        } else if (/^-?\d+\s+\(.+\)$/.test(rawValue)) {
+          // 特殊数字格式：数字后跟括号，如 "-1 (18446744073709551615)"
+          const numberMatch = rawValue.match(/^(-?\d+)\s+\(.+\)$/);
+          if (numberMatch) {
+            value = numberMatch[1];
+          } else {
+            value = rawValue;
+          }
         } else {
           // 其他情况 - 可能是解析错误或损坏的数据
           console.warn(`警告: 未知值格式 - 列${columnIndex}: "${rawValue}"`);
           
-          // 尝试修复常见问题
-          if (rawValue.startsWith('NULL') && /^NULL\d+/.test(rawValue)) {
-            // NULL后跟数字的情况，强制设为NULL
-            console.warn(`修复: ${rawValue} -> NULL`);
-            value = null;
-          } else if (rawValue.startsWith("'") && !rawValue.endsWith("'")) {
+          if (rawValue.startsWith("'") && !rawValue.endsWith("'")) {
             // 不完整的引号字符串，可能是截断
             console.warn(`修复截断字符串: ${rawValue}`);
             value = rawValue.startsWith("'") ? rawValue.slice(1) : rawValue;
