@@ -58,6 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/jichenghan800/mysql-binlog-analyzer
 
 ### 方式二：Docker 部署
 
+#### 🐧 Linux / 🍎 macOS
 ```bash
 # 克隆项目
 git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
@@ -70,21 +71,83 @@ docker-compose up -d
 docker-compose --profile with-database up -d
 ```
 
-### 方式三：本地开发
-
-```bash
-# 1. 克隆项目
+#### 🪟 Windows
+```powershell
+# 使用PowerShell或命令提示符
+# 克隆项目
 git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
 cd mysql-binlog-analyzer
 
-# 2. 安装依赖
-npm install
+# 内存存储模式 (适合小文件测试)
+docker-compose up -d
 
-# 3. 启动服务
+# 数据库存储模式 (适合大文件生产环境)
+docker-compose --profile with-database up -d
+```
+
+#### 📋 平台特殊说明
+- **Windows用户**：建议使用Docker Desktop for Windows
+- **macOS用户**：建议使用Docker Desktop for Mac
+- **Linux用户**：可直接使用系统包管理器安装Docker
+
+### 方式三：本地开发
+
+#### 🐧 Linux
+```bash
+# 1. 安装依赖
+sudo apt-get update
+sudo apt-get install nodejs npm mysql-client git
+
+# 2. 克隆项目
+git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
+cd mysql-binlog-analyzer
+
+# 3. 安装依赖并启动
+npm install
 npm start
 ```
 
-**访问地址：** http://localhost:3000 (Docker部署为端口5000)
+#### 🍎 macOS
+```bash
+# 1. 安装Homebrew（如果未安装）
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. 安装依赖
+brew install node mysql-client git
+
+# 3. 克隆项目
+git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
+cd mysql-binlog-analyzer
+
+# 4. 安装依赖并启动
+npm install
+npm start
+```
+
+#### 🪟 Windows
+```powershell
+# 1. 安装WSL2（在PowerShell中以管理员身份运行）
+wsl --install
+
+# 2. 在WSL2中安装依赖
+sudo apt-get update
+sudo apt-get install nodejs npm mysql-client git
+
+# 3. 克隆项目
+git clone https://github.com/jichenghan800/mysql-binlog-analyzer.git
+cd mysql-binlog-analyzer
+
+# 4. 安装依赖并启动
+npm install
+npm start
+```
+
+**注意：** Windows用户强烈建议使用Docker部署方式，避免环境配置问题。
+
+#### 🌐 访问地址
+- **本地部署**: http://localhost:3000
+- **Docker部署**: http://localhost:5000
+- **局域网访问**: http://服务器IP:5000
 
 ## 🐳 部署方式
 
@@ -237,17 +300,25 @@ FLUSH PRIVILEGES;
 
 ### 系统要求
 
-**最低要求：**
-- Node.js 14.0+
-- 内存 2GB+
-- 磁盘空间 1GB+
-- MySQL客户端工具
+#### 💻 基础要求
+| 项目 | 最低要求 | 推荐配置 |
+|------|---------|----------|
+| **CPU** | 2核 | 4核+ |
+| **内存** | 2GB | 8GB+ |
+| **磁盘** | 1GB | 10GB SSD |
+| **网络** | 宽带连接 | 稳定网络 |
 
-**推荐配置：**
-- Node.js 18.0+
-- 内存 8GB+
-- SSD存储 10GB+
-- MySQL 8.0+
+#### 🔧 软件依赖
+
+**🐳 Docker部署（推荐）**
+- **Linux**: Docker 20.0+ + Docker Compose 1.29+
+- **macOS**: Docker Desktop 4.0+
+- **Windows**: Docker Desktop 4.0+ + WSL2
+
+**💻 本地部署**
+- **所有平台**: Node.js 14.0+ (推荐 18.0+)
+- **Linux/macOS**: MySQL客户端工具 (mysqlbinlog)
+- **Windows**: WSL2 + MySQL客户端工具
 
 ## 🔧 开发指南
 
@@ -313,9 +384,10 @@ NODE_ENV=development npm start
 - ⚡ 使用SSD存储提升I/O性能
 
 ### 兼容性
-- 🐧 完全支持Linux和macOS
-- 🪟 Windows需要WSL环境
-- 🐳 推荐使用Docker部署避免环境问题
+- 🐧 **Linux** - 完全支持，推荐生产环境使用
+- 🍎 **macOS** - 完全支持，开发环境友好
+- 🪟 **Windows** - 支持Docker部署，推荐使用Docker Desktop
+- 🐳 **Docker部署** - 跨平台兼容，推荐所有平台使用
 
 ## 🤝 贡献指南
 
