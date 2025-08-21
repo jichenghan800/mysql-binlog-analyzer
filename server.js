@@ -1194,6 +1194,27 @@ app.post('/statistics', async (req, res) => {
   }
 });
 
+// Demo API - 提供测试文件
+app.get('/api/demo', (req, res) => {
+  try {
+    const testFilePath = path.join(__dirname, 'test-data', 'test-binlog.log');
+    
+    if (!fs.existsSync(testFilePath)) {
+      return res.status(404).json({ error: '测试文件不存在' });
+    }
+    
+    const fileContent = fs.readFileSync(testFilePath);
+    
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'attachment; filename="test-binlog.log"');
+    res.send(fileContent);
+    
+  } catch (error) {
+    console.error('获取Demo文件失败:', error);
+    res.status(500).json({ error: '获取Demo文件失败: ' + error.message });
+  }
+});
+
 // 获取筛选选项
 app.post('/filter-options', async (req, res) => {
   try {
