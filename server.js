@@ -416,32 +416,47 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       continue;
     }
 
-    // 解析列和值 - 支持-vv参数的详细输出格式
+    // 解析列和值 - 改进的mysqlbinlog输出解析
     if (currentOperation && line.startsWith('###   @')) {
       const columnMatch = line.match(/###\s+@(\d+)=(.+)/);
       if (columnMatch) {
         const columnIndex = parseInt(columnMatch[1]);
-        let originalValue = columnMatch[2];
-        let value = originalValue;
+        let rawValue = columnMatch[2];
+        let value = rawValue;
         
-        // 处理-v参数和sed过滤后的精炼输出
-        if (value && typeof value === 'string') {
-          // 清理控制字符和首尾空格
-          value = value
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-            .trim();
+        // 处理NULL值
+        if (rawValue === 'NULL') {
+          value = null;
+        }
+        // 处理带引号的字符串
+        else if (rawValue.startsWith("'") && rawValue.endsWith("'")) {
+          // 移除外层引号并处理转义
+          value = rawValue.slice(1, -1);
+          // 处理转义的单引号
+          value = value.replace(/\\'/g, "'");
+        }
+        // 处理数字（包括小数）
+        else if (/^-?\d+(\.\d+)?$/.test(rawValue)) {
+          value = rawValue;
+        }
+        // 处理其他情况 - 可能是损坏的值
+        else {
+          // 移除非打印字符
+          let cleanValue = rawValue.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
           
-          // 移除多余的引号
-          if ((value.startsWith("'") && value.endsWith("'")) || 
-              (value.startsWith('"') && value.endsWith('"'))) {
-            value = value.slice(1, -1);
+          // 检查是否是NULL后面跟了其他字符（如NULL54）
+          if (cleanValue.startsWith('NULL') && cleanValue.length > 4) {
+            // 这种情况通常是解析错误，应该是NULL
+            value = null;
+          } else {
+            value = cleanValue.trim();
           }
         }
         
         // 调试输出（仅在需要时）
         if (process.env.DEBUG && debugCount < 5) {
           debugCount++;
-          console.log(`[调试 ${debugCount}] 原始: "${originalValue}" -> 处理后: "${value}"`);
+          console.log(`[调试 ${debugCount}] 原始: "${rawValue}" -> 处理后: ${JSON.stringify(value)}`);
         }
         
         if (currentOperation.type === 'UPDATE') {
