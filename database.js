@@ -16,11 +16,10 @@ class DatabaseManager {
                 user: process.env.DB_USER || 'root',
                 password: process.env.DB_PASSWORD || '',
                 database: process.env.DB_NAME || 'binlog_analyzer',
-                acquireTimeout: 60000,
-                timeout: 60000,
-                reconnect: true,
-                idleTimeout: 300000,
-                maxReconnects: 3
+                connectTimeout: 60000,
+                socketPath: undefined,
+                charset: 'utf8mb4',
+                timezone: '+00:00'
             });
             
             await this.initTables();

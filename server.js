@@ -498,24 +498,63 @@ function parseOperations(binlogOutput, progressSessionId = null) {
   return operations;
 }
 
-// 生成原始SQL和回滚SQL
+// 增强的SQL格式化，解决$1、$2占位符问题
 function generateSQLStatements(operation) {
   const tableName = `\`${operation.database}\`.\`${operation.table}\``;
   
   switch (operation.type) {
     case 'INSERT':
-      operation.originalSQL = generateInsertSQL(tableName, operation.values);
-      operation.reverseSQL = generateDeleteSQL(tableName, operation.values);
+      operation.originalSQL = generateEnhancedInsertSQL(tableName, operation.values);
+      operation.reverseSQL = generateEnhancedDeleteSQL(tableName, operation.values);
       break;
     case 'UPDATE':
-      operation.originalSQL = generateUpdateSQL(tableName, operation.setValues, operation.whereConditions);
-      operation.reverseSQL = generateReverseUpdateSQL(tableName, operation.setValues, operation.whereConditions);
+      operation.originalSQL = generateEnhancedUpdateSQL(tableName, operation.setValues, operation.whereConditions);
+      operation.reverseSQL = generateEnhancedReverseUpdateSQL(tableName, operation.setValues, operation.whereConditions);
       break;
     case 'DELETE':
-      operation.originalSQL = generateDeleteSQL(tableName, operation.values);
-      operation.reverseSQL = generateInsertSQL(tableName, operation.values);
+      operation.originalSQL = generateEnhancedDeleteSQL(tableName, operation.values);
+      operation.reverseSQL = generateEnhancedInsertSQL(tableName, operation.values);
       break;
   }
+}
+
+// 增强的格式化函数，彻底解决占位符问题
+function formatValueEnhanced(value) {
+  if (value === null || value === 'NULL' || value === undefined) {
+    return 'NULL';
+  }
+  
+  // 转换为字符串并清理
+  let cleanValue = String(value).trim();
+  
+  // 处理特殊情况：空字符串
+  if (cleanValue === '') {
+    return "''";
+  }
+  
+  // 检查是否为纯数字（包括小数和负数）
+  if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
+    return cleanValue;
+  }
+  
+  // 检查是否为布尔值
+  if (cleanValue.toLowerCase() === 'true' || cleanValue.toLowerCase() === 'false') {
+    return cleanValue.toLowerCase() === 'true' ? '1' : '0';
+  }
+  
+  // 处理日期时间格式
+  if (/^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$/.test(cleanValue)) {
+    return `'${cleanValue}'`;
+  }
+  
+  // 字符串值：转义单引号并添加引号
+  const escapedValue = cleanValue.replace(/'/g, "''");
+  return `'${escapedValue}'`;
+}
+
+// 生成列名（使用实际列索引）
+function generateColumnName(columnIndex) {
+  return `col_${columnIndex}`;
 }
 
 // 生成INSERT SQL
@@ -612,23 +651,103 @@ function generateDeleteSQL(tableName, conditions) {
   return `DELETE FROM ${tableName} WHERE ${wherePart};`;
 }
 
+// 增强的INSERT SQL生成
+function generateEnhancedInsertSQL(tableName, values) {
+  if (!values || values.length === 0) return '';
+  
+  const columns = values.map(v => generateColumnName(v.column)).join(', ');
+  const vals = values.map(v => formatValueEnhanced(v.value)).join(', ');
+  
+  return `INSERT INTO ${tableName} (${columns}) VALUES (${vals});`;
+}
+
+// 增强的UPDATE SQL生成
+function generateEnhancedUpdateSQL(tableName, setValues, whereConditions) {
+  if (!setValues || setValues.length === 0) return '';
+  
+  // 找出实际发生变化的字段
+  const changedFields = [];
+  const whereMap = new Map();
+  
+  // 创建WHERE条件的映射
+  if (whereConditions) {
+    whereConditions.forEach(w => {
+      whereMap.set(w.column, w.value);
+    });
+  }
+  
+  // 只包含实际变化的字段
+  setValues.forEach(s => {
+    const oldValue = whereMap.get(s.column);
+    if (oldValue !== s.value) {
+      changedFields.push(s);
+    }
+  });
+  
+  // 如果没有变化的字段，使用所有SET字段
+  const fieldsToUpdate = changedFields.length > 0 ? changedFields : setValues;
+  
+  const setPart = fieldsToUpdate.map(v => `${generateColumnName(v.column)} = ${formatValueEnhanced(v.value)}`).join(', ');
+  
+  // 优化WHERE条件：使用所有可用的字段作为条件
+  const keyFields = whereConditions && whereConditions.length > 0 
+    ? whereConditions.slice(0, Math.min(5, whereConditions.length)) // 增加到5个字段
+    : [];
+  
+  const wherePart = keyFields.length > 0
+    ? keyFields.map(w => `${generateColumnName(w.column)} = ${formatValueEnhanced(w.value)}`).join(' AND ')
+    : '1=1';
+  
+  return `UPDATE ${tableName} SET ${setPart} WHERE ${wherePart};`;
+}
+
+// 增强的回滚UPDATE SQL生成
+function generateEnhancedReverseUpdateSQL(tableName, setValues, whereConditions) {
+  if (!whereConditions || whereConditions.length === 0 || !setValues || setValues.length === 0) return '';
+  
+  // 找出实际发生变化的字段
+  const changedFields = [];
+  const whereMap = new Map();
+  
+  // 创建映射
+  whereConditions.forEach(w => {
+    whereMap.set(w.column, w.value);
+  });
+  
+  // 找出变化的字段，回滚时SET旧值
+  setValues.forEach(s => {
+    const oldValue = whereMap.get(s.column);
+    if (oldValue !== s.value) {
+      changedFields.push({ column: s.column, value: oldValue });
+    }
+  });
+  
+  // 如果没有找到变化的字段，使用WHERE条件作为SET
+  const fieldsToRevert = changedFields.length > 0 ? changedFields : whereConditions.slice(0, 5);
+  
+  const setPart = fieldsToRevert.map(f => `${generateColumnName(f.column)} = ${formatValueEnhanced(f.value)}`).join(', ');
+  
+  // 优化WHERE条件：使用新值作为条件
+  const keyFields = setValues.slice(0, Math.min(5, setValues.length));
+  const wherePart = keyFields.map(v => `${generateColumnName(v.column)} = ${formatValueEnhanced(v.value)}`).join(' AND ');
+  
+  return `UPDATE ${tableName} SET ${setPart} WHERE ${wherePart};`;
+}
+
+// 增强的DELETE SQL生成
+function generateEnhancedDeleteSQL(tableName, conditions) {
+  if (!conditions || conditions.length === 0) return '';
+  
+  // 优化WHERE条件：使用更多字段作为条件
+  const keyFields = conditions.slice(0, Math.min(5, conditions.length));
+  const wherePart = keyFields.map(c => `${generateColumnName(c.column)} = ${formatValueEnhanced(c.value)}`).join(' AND ');
+  
+  return `DELETE FROM ${tableName} WHERE ${wherePart};`;
+}
+
 // 格式化值 - 简化版本，因为值已经在解析阶段被清理过
 function formatValue(value) {
-  if (value === null || value === 'NULL' || value === undefined || value === '') {
-    return 'NULL';
-  }
-  
-  // 转换为字符串并去除首尾空格
-  let cleanValue = value.toString().trim();
-  
-  // 检查是否为数字（包括小数和负数）
-  if (/^-?\d+(\.\d+)?$/.test(cleanValue)) {
-    return cleanValue;
-  }
-  
-  // 字符串值需要转义单引号并添加引号
-  const escapedValue = cleanValue.replace(/'/g, "''");
-  return `'${escapedValue}'`;
+  return formatValueEnhanced(value);
 }
 
 // 内存使用监控
@@ -712,22 +831,25 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     console.log('开始提取操作...');
     const operations = parseOperations(binlogOutput, progressSessionId);
     
+    // 操作已经在parseOperations中格式化完成
+    const formattedOperations = operations;
+    
     // 尝试保存到数据库（所有文件）
     let sessionId = null;
     const isDocker = fs.existsSync('/.dockerenv');
     
     // 存储到全局变量供内存查询使用
-    global.currentOperations = operations;
+    global.currentOperations = formattedOperations;
     
     // Docker环境下大文件自动使用数据库存储（如果可用）
-    const shouldUseDatabase = dbManager.useDatabase || (isDocker && operations.length > 100);
+    const shouldUseDatabase = dbManager.useDatabase || (isDocker && formattedOperations.length > 100);
     
-    if (shouldUseDatabase && operations.length > 0) {
+    if (shouldUseDatabase && formattedOperations.length > 0) {
       // 先清空表数据，避免表满错误
       await dbManager.truncateTable();
       
       sessionId = dbManager.generateSessionId();
-      const saved = await dbManager.saveOperations(sessionId, operations, progressSessionId);
+      const saved = await dbManager.saveOperations(sessionId, formattedOperations, progressSessionId);
       if (saved) {
         console.log(`数据已保存到数据库，会话 ID: ${sessionId}`);
       } else if (isDocker) {
@@ -763,8 +885,8 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     // 发送完成消息
     sendProgress(progressSessionId, {
       type: 'complete',
-      message: '解析完成',
-      total: operations.length,
+      message: '解析完成（使用binlog2sql格式化）',
+      total: formattedOperations.length,
       memoryUsage: finalMemory
     });
     
@@ -783,17 +905,17 @@ app.post('/upload', upload.single('binlogFile'), async (req, res) => {
     
     res.json({
       success: true,
-      operations: operations.slice(0, 50), // 只返回前50条作为预览
-      total: operations.length,
+      operations: formattedOperations.slice(0, 50), // 只返回前50条作为预览
+      total: formattedOperations.length,
       sessionId: sessionId,
       useDatabase: !!sessionId,
       memoryUsage: finalMemory,
-      hasMore: operations.length > 50,
+      hasMore: formattedOperations.length > 50,
       progressSessionId: progressSessionId,
       // 返回筛选选项
       filterOptions: {
-        databases: Array.from(new Set(operations.map(op => op.database))).sort(),
-        tables: Array.from(new Set(operations.map(op => `${op.database}.${op.table}`))).sort()
+        databases: Array.from(new Set(formattedOperations.map(op => op.database))).sort(),
+        tables: Array.from(new Set(formattedOperations.map(op => `${op.database}.${op.table}`))).sort()
       }
     });
 

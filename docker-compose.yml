@@ -47,9 +47,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 32G
+          memory: 8G
         reservations:
-          memory: 4G
+          memory: 1G
     
   # MySQL数据库服务
   mysql:
