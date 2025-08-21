@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![MySQL Binlog Analyzer](public/icon.svg)
+<img src="public/icon.svg" alt="MySQL Binlog Analyzer" width="64" height="64">
 
 **一个强大的MySQL binlog文件解析和分析Web工具**
 
