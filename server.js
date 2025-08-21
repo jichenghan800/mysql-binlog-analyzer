@@ -416,40 +416,45 @@ function parseOperations(binlogOutput, progressSessionId = null) {
       continue;
     }
 
-    // 解析列和值 - 改进的mysqlbinlog输出解析
+    // 解析列和值 - 严格按mysqlbinlog输出格式解析
     if (currentOperation && line.startsWith('###   @')) {
-      const columnMatch = line.match(/###\s+@(\d+)=(.+)/);
+      // 使用更严格的正则表达式，确保完整匹配一行
+      const columnMatch = line.match(/^###\s+@(\d+)=(.+)$/);
       if (columnMatch) {
         const columnIndex = parseInt(columnMatch[1]);
-        let rawValue = columnMatch[2];
+        const rawValue = columnMatch[2].trim(); // 去除首尾空格
         let value = rawValue;
         
-        // 处理NULL值
+        // 严格按照mysqlbinlog输出格式解析
         if (rawValue === 'NULL') {
+          // 精确匹配NULL
           value = null;
-        }
-        // 处理带引号的字符串
-        else if (rawValue.startsWith("'") && rawValue.endsWith("'")) {
-          // 移除外层引号并处理转义
+        } else if (rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length >= 2) {
+          // 完整的引号字符串
           value = rawValue.slice(1, -1);
-          // 处理转义的单引号
-          value = value.replace(/\\'/g, "'");
-        }
-        // 处理数字（包括小数）
-        else if (/^-?\d+(\.\d+)?$/.test(rawValue)) {
+          // 处理转义字符
+          value = value.replace(/\\'/g, "'").replace(/\\\\/g, "\\").replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(/\\t/g, "\t");
+        } else if (/^-?\d+(\.\d+)?$/.test(rawValue)) {
+          // 纯数字（整数或小数）
           value = rawValue;
-        }
-        // 处理其他情况 - 可能是损坏的值
-        else {
-          // 移除非打印字符
-          let cleanValue = rawValue.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+        } else {
+          // 其他情况 - 可能是解析错误或损坏的数据
+          console.warn(`警告: 未知值格式 - 列${columnIndex}: "${rawValue}"`);
           
-          // 检查是否是NULL后面跟了其他字符（如NULL54）
-          if (cleanValue.startsWith('NULL') && cleanValue.length > 4) {
-            // 这种情况通常是解析错误，应该是NULL
+          // 尝试修复常见问题
+          if (rawValue.startsWith('NULL') && /^NULL\d+/.test(rawValue)) {
+            // NULL后跟数字的情况，强制设为NULL
+            console.warn(`修复: ${rawValue} -> NULL`);
             value = null;
+          } else if (rawValue.startsWith("'") && !rawValue.endsWith("'")) {
+            // 不完整的引号字符串，可能是截断
+            console.warn(`修复截断字符串: ${rawValue}`);
+            value = rawValue.startsWith("'") ? rawValue.slice(1) : rawValue;
+            // 清理控制字符
+            value = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
           } else {
-            value = cleanValue.trim();
+            // 保持原值但清理控制字符
+            value = rawValue.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
           }
         }
         
